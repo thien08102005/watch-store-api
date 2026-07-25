@@ -582,4 +582,8 @@ window.CHRONOS_AUTH = {
     updateHeaderCounts
 };
 
-document.addEventListener('DOMContentLoaded', bindAuthEvents);
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindAuthEvents);
+} else {
+    bindAuthEvents();
+}

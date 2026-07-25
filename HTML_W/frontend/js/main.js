@@ -31,7 +31,7 @@ async function fetchFeaturedProducts() {
         featuredProducts.forEach(product => {
             const rating = product.rating || 5;
             htmlContent += `
-                <div class="product-card" onclick="window.location.href='product-detail.html?id=${product._id}'" style="cursor: pointer;">
+                <div class="product-card" data-product-id="${product._id}" style="cursor: pointer;">
                     <span class="rating"><i class="fas fa-star"></i> ${rating}</span>
                     <img src="${product.imageUrl}" alt="${product.name}">
                     <div class="product-info">
@@ -39,14 +39,41 @@ async function fetchFeaturedProducts() {
                         <p class="price">${(product.price || 0).toLocaleString('vi-VN')} đ</p>
                     </div>
                     <div class="product-actions">
-                        <button class="btn-add-cart" onclick="event.stopPropagation(); window.CHRONOS_AUTH?.handleProtectedAddToCart('${product._id}', '${product.name}')">Thêm giỏ</button>
-                        <button class="btn-wishlist" onclick="event.stopPropagation(); window.CHRONOS_AUTH?.handleToggleWishlist('${product._id}', '${product.name}')">Yêu thích</button>
+                        <button class="btn-add-cart" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>Thêm giỏ</button>
+                        <button class="btn-wishlist" data-action="toggle-wishlist" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>Yêu thích</button>
                     </div>
                 </div>
             `;
         });
 
         productList.innerHTML = htmlContent;
+
+        productList.querySelectorAll('.product-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const id = card.dataset.productId;
+                if (id) {
+                    window.location.href = `product-detail.html?id=${id}`;
+                }
+            });
+        });
+
+        productList.querySelectorAll('button[data-action="add-cart"]').forEach(button => {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const productId = button.dataset.productId;
+                const productName = button.dataset.productName || 'sản phẩm';
+                window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName);
+            });
+        });
+
+        productList.querySelectorAll('button[data-action="toggle-wishlist"]').forEach(button => {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const productId = button.dataset.productId;
+                const productName = button.dataset.productName || 'sản phẩm';
+                window.CHRONOS_AUTH?.handleToggleWishlist(productId, productName, button);
+            });
+        });
     } catch (error) {
         console.error('Lỗi khi gọi API trang chủ:', error);
         productList.innerHTML = '<p style="text-align:center; width: 100%;">Không thể tải sản phẩm lúc này.</p>';

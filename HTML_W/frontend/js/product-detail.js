@@ -114,9 +114,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
 
                 <div class="action-buttons">
-                    <button class="btn-buy-now" onclick="window.CHRONOS_AUTH?.handleProtectedBuyNow('${product.name}')">Mua Ngay</button>
-                    <button class="btn-add-cart-detail" onclick="window.CHRONOS_AUTH?.handleProtectedAddToCart('${product._id}', '${product.name}')">Thêm Vào Giỏ</button>
-                    <button class="btn-wishlist-detail ${isInWishlist ? 'active' : ''}" onclick="window.CHRONOS_AUTH?.handleToggleWishlist('${product._id}', '${product.name}', this)">
+                    <button class="btn-buy-now" data-action="buy-now" data-product-name=${JSON.stringify(product.name)}>Mua Ngay</button>
+                    <button class="btn-add-cart-detail" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>Thêm Vào Giỏ</button>
+                    <button class="btn-wishlist-detail ${isInWishlist ? 'active' : ''}" data-action="toggle-wishlist" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>
                         ${isInWishlist ? 'Bỏ yêu thích' : 'Thêm yêu thích'}
                     </button>
                 </div>
@@ -126,6 +126,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
             </div>
         `;
+
+        const actionButtons = container.querySelectorAll('[data-action]');
+        actionButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const action = button.dataset.action;
+                const productId = button.dataset.productId;
+                const productName = button.dataset.productName || 'sản phẩm';
+
+                if (action === 'buy-now') {
+                    window.CHRONOS_AUTH?.handleProtectedBuyNow(productName);
+                } else if (action === 'add-cart') {
+                    window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName);
+                } else if (action === 'toggle-wishlist') {
+                    window.CHRONOS_AUTH?.handleToggleWishlist(productId, productName, button);
+                }
+            });
+        });
 
     } catch (error) {
         console.error('Lỗi tải chi tiết sản phẩm:', error);

@@ -136,7 +136,7 @@ function renderProductsGrid(products) {
 
         const inWishlist = window.CHRONOS_AUTH?.isInWishlist(product._id);
         return `
-            <div class="product-card" onclick="window.location.href='product-detail.html?id=${product._id}'">
+            <div class="product-card" data-product-id="${product._id}">
                 <span class="badge-new">NEW</span>
                 <img src="${product.imageUrl}" alt="${product.name}">
 
@@ -146,16 +146,44 @@ function renderProductsGrid(products) {
                 <div class="product-price">${(product.price || 0).toLocaleString('vi-VN')}đ</div>
 
                 <div class="product-actions">
-                    <button class="btn-add-cart" onclick="event.stopPropagation(); window.CHRONOS_AUTH?.handleProtectedAddToCart('${product._id}', '${product.name}')">
+                    <button class="btn-add-cart" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>
                         Thêm vào giỏ
                     </button>
-                    <button class="btn-wishlist ${inWishlist ? 'active' : ''}" onclick="event.stopPropagation(); window.CHRONOS_AUTH?.handleToggleWishlist('${product._id}', '${product.name}', this)">
+                    <button class="btn-wishlist ${inWishlist ? 'active' : ''}" data-action="toggle-wishlist" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>
                         ${inWishlist ? 'Bỏ yêu thích' : 'Thêm yêu thích'}
                     </button>
                 </div>
             </div>
         `;
     }).join('');
+
+    const cards = container.querySelectorAll('.product-card');
+    cards.forEach(card => {
+        card.addEventListener('click', () => {
+            const id = card.dataset.productId;
+            if (id) {
+                window.location.href = `product-detail.html?id=${id}`;
+            }
+        });
+    });
+
+    container.querySelectorAll('button[data-action="add-cart"]').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const productId = button.dataset.productId;
+            const productName = button.dataset.productName || 'sản phẩm';
+            window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName);
+        });
+    });
+
+    container.querySelectorAll('button[data-action="toggle-wishlist"]').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const productId = button.dataset.productId;
+            const productName = button.dataset.productName || 'sản phẩm';
+            window.CHRONOS_AUTH?.handleToggleWishlist(productId, productName, button);
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
