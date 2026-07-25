@@ -45,6 +45,25 @@
             pointer-events: auto;
         }
 
+        .fixed-contact-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: #d4af37;
+            color: #000;
+            padding: 12px 18px;
+            border-radius: 50px;
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+            z-index: 9999;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .fixed-contact-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+        }
+
         /* Container Chi tiết sản phẩm */
         .detail-container {
             display: grid;
@@ -217,7 +236,6 @@
             <a href="products.html?category=Nữ">ĐỒNG HỒ NỮ</a>
             <a href="brands.html">THƯƠNG HIỆU</a>
             <a href="products.html?category=Bán chạy">BÁN CHẠY</a>
-            <a href="contact.html">LIÊN HỆ</a>
         </nav>
         <div class="nav-icons">
             <div class="search-container">
@@ -229,6 +247,7 @@
             <a href="#" class="icon-button" id="cart-icon"><i class="fas fa-shopping-cart"></i><span class="icon-count" id="cart-count">0</span></a>
         </div>
     </header>
+    <a href="https://zalo.me/g/ihfgjp538" class="fixed-contact-btn" target="_blank" rel="noopener noreferrer">Liên hệ</a>
 
     <!-- Khu vực hiển thị chi tiết sản phẩm -->
     <div class="detail-container" id="product-detail-content">

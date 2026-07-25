@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 (async () => {
-  const uri = 'mongodb://localhost:27017/chronos_db';
+  const uri = 'mongodb://localhost:27017/ChronosWatchDB';
   try {
     await mongoose.connect(uri);
     const Product = require('./src/models/product.model');

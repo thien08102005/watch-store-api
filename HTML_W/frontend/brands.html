@@ -21,6 +21,26 @@
         .search-input-header { position:absolute; right:32px; top:50%; transform:translateY(-50%); width:0; opacity:0; transition:all .25s; pointer-events:none; }
         .search-input-header.active { width:200px; opacity:1; pointer-events:auto; }
 
+        .fixed-contact-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: #d4af37;
+            color: #000;
+            padding: 12px 18px;
+            border-radius: 50px;
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+            z-index: 9999;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .fixed-contact-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+        }
+
         .brands-hero { padding:30px 5px 10px; background:#fff; }
         .brands-hero h1 { font-size:24px; font-weight:700; text-transform:none; margin-bottom:8px; }
         .brands-hero p { color:#555; font-size:14px; margin-top:6px; }
@@ -47,7 +67,6 @@
             <a href="products.html?category=Nữ">ĐỒNG HỒ NỮ</a>
             <a href="brands.html">THƯƠNG HIỆU</a>
             <a href="products.html?category=Bán chạy">BÁN CHẠY</a>
-            <a href="contact.html">LIÊN HỆ</a>
         </nav>
         <div class="nav-icons">
             <div class="search-container">
@@ -59,6 +78,7 @@
             <a href="cart.html" class="icon-button" id="cart-icon"><i class="fas fa-shopping-cart"></i><span class="icon-count" id="cart-count">0</span></a>
         </div>
     </header>
+    <a href="https://zalo.me/g/ihfgjp538" class="fixed-contact-btn" target="_blank" rel="noopener noreferrer">Liên hệ</a>
 
     <section class="brands-hero">
         <h1>Thương hiệu:</h1>

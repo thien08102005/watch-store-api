@@ -159,6 +159,25 @@
             margin-left: 6px;
         }
 
+        .fixed-contact-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: #d4af37;
+            color: #000;
+            padding: 12px 18px;
+            border-radius: 50px;
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+            z-index: 9999;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .fixed-contact-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+        }
+
         /* Banner chính (Hero Section) */
         .hero {
             background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('Image/banner.png') no-repeat center center/cover;
@@ -343,6 +362,26 @@
             background: #d4af37;
             color: #000;
         }
+
+        .fixed-contact-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: #d4af37;
+            color: #000;
+            padding: 12px 18px;
+            border-radius: 50px;
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+            z-index: 9999;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .fixed-contact-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+        }
     </style>
 </head>
 <body>
@@ -357,7 +396,6 @@
                 <li><a href="products.html?category=Nữ">Đồng hồ nữ</a></li>
                 <li><a href="products.html?category=Thương hiệu">Thương hiệu</a></li>
                 <li><a href="products.html?category=Bán chạy">Bán chạy</a></li>
-                <li><a href="contact.html">Liên hệ</a></li>
             </ul>
         </nav>
         <!-- Phần Icons bên phải đã được tích hợp thanh tìm kiếm -->
@@ -371,6 +409,8 @@
             <a href="#" class="icon-button" id="cart-icon"><i class="fas fa-shopping-cart"></i><span class="icon-count" id="cart-count">0</span></a>
         </div>
     </header>
+
+    <a href="https://zalo.me/g/ihfgjp538" class="fixed-contact-btn" target="_blank" rel="noopener noreferrer">Liên hệ</a>
 
     <!-- Hero Banner -->
     <section class="hero">
