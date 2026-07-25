@@ -7,7 +7,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node seed.js",
-    "setup": "npm run seed && npm run start"
+    "setup": "npm run seed && npm run start",
+    "set-role": "node scripts/set-user-role.js"
   },
   "keywords": [],
   "author": "",

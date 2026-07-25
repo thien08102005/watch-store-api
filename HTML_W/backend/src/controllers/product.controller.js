@@ -10,6 +10,33 @@ class ProductController {
       res.status(500).json({ success: false, message: error.message });
     }
   }
+
+  async createProduct(req, res) {
+    try {
+      const { name, brand, price, category, imageUrl, rating } = req.body;
+      const numericPrice = Number(price);
+      if (!name || !brand || !category || !imageUrl || !Number.isFinite(numericPrice) || numericPrice <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vui lòng nhập đủ tên, hãng, giá, loại và ảnh sản phẩm.'
+        });
+      }
+
+      const Product = require('../models/product.model');
+      const product = await Product.create({
+        name: name.trim(),
+        brand: brand.trim(),
+        price: numericPrice,
+        category: category.trim(),
+        imageUrl: imageUrl.trim(),
+        ...(rating !== undefined && { rating: Number(rating) }),
+        createdBy: req.user.id
+      });
+      return res.status(201).json({ success: true, message: 'Đã thêm sản phẩm.', data: product });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
 }
 
 module.exports = new ProductController();

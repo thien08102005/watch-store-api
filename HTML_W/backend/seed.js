@@ -1,6 +1,26 @@
 require('dotenv').config(); // Lấy cấu hình từ file .env
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const Product = require('./src/models/product.model'); // Trỏ chuẩn về file model của bạn
+const User = require('./src/models/user.model');
+
+const demoUsers = [
+    { name: 'Admin', email: 'admin@chronos.local', role: 'manager' },
+    { name: 'Nhân viên', email: 'nhanvien@chronos.local', role: 'staff' },
+    { name: 'Khách hàng', email: 'khachhang@chronos.local', role: 'customer' }
+];
+
+const seedDemoUsers = async () => {
+    const password = await bcrypt.hash('123', 10);
+    for (const demoUser of demoUsers) {
+        await User.updateOne(
+            { email: demoUser.email },
+            { $set: { ...demoUser, password } },
+            { upsert: true }
+        );
+    }
+    console.log('Đã kiểm tra/tạo 3 tài khoản mẫu phân quyền.');
+};
 
 // Danh sách sản phẩm thực tế (5 Nam, 5 Nữ)
 const sampleProducts = [
@@ -306,6 +326,7 @@ const seedDB = async () => {
         console.log('Đã xóa dữ liệu cũ...');
 
         await Product.insertMany(sampleProducts);
+        await seedDemoUsers();
         console.log('Đã thêm thành công 10 sản phẩm (5 nam, 5 nữ) vào Database!');
     } catch (err) {
         console.error('Lỗi khi seed dữ liệu:', err);
@@ -319,6 +340,7 @@ const seedDB = async () => {
 const seedIfEmpty = async () => {
     await connectDatabase();
     try {
+        await seedDemoUsers();
         const count = await Product.countDocuments();
         if (count === 0) {
             console.log('Dữ liệu rỗng, tiến hành seed dữ liệu mẫu...');

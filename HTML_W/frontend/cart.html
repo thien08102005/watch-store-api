@@ -109,7 +109,7 @@
                             <p>Số lượng: ${quantity}</p>
                         </div>
                         <div class="cart-actions">
-                            <button class="btn-checkout" onclick="alert('Đi tới trang thanh toán...')">Thanh toán</button>
+                            <button class="btn-checkout" onclick="window.CHRONOS_AUTH?.showCheckoutModal('Giỏ hàng')">Thanh toán</button>
                             <button class="btn-remove" onclick="(function(){ const updated = getCartItems().filter(it => it.id !== '${item.id}'); saveCartItems(updated); window.location.reload(); })()">Xóa</button>
                         </div>
                     </div>

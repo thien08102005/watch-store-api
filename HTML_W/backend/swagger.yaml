@@ -12,3 +12,18 @@ paths:
       responses:
         '200':
           description: Trả về danh sách đồng hồ thành công
+    post:
+      summary: Thêm sản phẩm (quản lý hoặc nhân viên)
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Thêm sản phẩm thành công
+        '403':
+          description: Không có quyền
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -133,7 +133,7 @@ async function loginUser(email, password) {
             return { ok: false, message: data.message || 'Đăng nhập thất bại.' };
         }
 
-        saveCurrentUser({ name: data.user.name, email: data.user.email, token: data.token });
+        saveCurrentUser({ name: data.user.name, email: data.user.email, role: data.user.role, token: data.token });
         return { ok: true, message: 'Đăng nhập thành công!' };
     } catch (error) {
         return { ok: false, message: 'Không thể kết nối tới server.' };
@@ -154,7 +154,7 @@ async function registerUser(name, email, password) {
             return { ok: false, message: data.message || 'Đăng ký thất bại.' };
         }
 
-        saveCurrentUser({ name: data.user.name, email: data.user.email, token: data.token });
+        saveCurrentUser({ name: data.user.name, email: data.user.email, role: data.user.role, token: data.token });
         return { ok: true, message: 'Đăng ký tài khoản thành công!' };
     } catch (error) {
         return { ok: false, message: 'Không thể kết nối tới server.' };
@@ -284,6 +284,35 @@ function injectAuthStyles() {
             cursor: pointer;
             font-size: 13px;
         }
+        .user-role-badge {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1.2;
+            color: #111;
+            background: #d4af37;
+        }
+        .role-panel-box { max-width: 620px; max-height: 85vh; overflow-y: auto; }
+        .role-panel-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+        .role-panel-actions button, .role-form button { padding: 10px 14px; border: 0; border-radius: 8px; cursor: pointer; background: #d4af37; color: #111; font-weight: 700; }
+        .role-panel-actions .secondary { background: #ececec; }
+        .role-form { display: grid; gap: 10px; }
+        .role-form input, .role-form select { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; }
+        .role-panel-message { min-height: 20px; margin-top: 10px; font-size: 14px; }
+        .staff-list { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+        .staff-list th, .staff-list td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
+        .checkout-box { max-width: 560px; }
+        .address-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .address-grid .full-width { grid-column: 1 / -1; }
+        .address-grid label { display: grid; gap: 6px; font-size: 13px; color: #444; }
+        .address-grid input, .address-grid select { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font: inherit; }
+        .checkout-submit { width: 100%; margin-top: 16px; padding: 11px; border: 0; border-radius: 8px; background: #d4af37; color: #111; font-weight: 700; cursor: pointer; }
     `;
     document.head.appendChild(style);
 }
@@ -372,6 +401,206 @@ function hideAuthModal() {
     }
 }
 
+function getRoleLabel(role) {
+    return { manager: 'Quản lý', staff: 'Nhân viên', customer: 'Khách hàng' }[role] || 'Khách hàng';
+}
+
+function closeRolePanel() {
+    document.getElementById('role-panel-modal')?.remove();
+}
+
+function logoutUser() {
+    clearCurrentUser();
+    resetAuthForm();
+    setAuthMode('login');
+    closeRolePanel();
+    updateAuthUI();
+    alert('Đã đăng xuất');
+}
+
+const SHIPPING_ADDRESS_KEY = 'chronos_shipping_address';
+const addressData = {
+    'Hà Nội': {
+        'Ba Đình': ['Phúc Xá', 'Trúc Bạch', 'Ngọc Hà'],
+        'Cầu Giấy': ['Dịch Vọng', 'Nghĩa Đô', 'Yên Hòa'],
+        'Hoàng Mai': ['Hoàng Liệt', 'Định Công', 'Mai Động']
+    },
+    'TP. Hồ Chí Minh': {
+        'Quận 1': ['Bến Nghé', 'Bến Thành', 'Cầu Ông Lãnh'],
+        'Quận 3': ['Phường 1', 'Phường 6', 'Phường 7'],
+        'TP. Thủ Đức': ['An Phú', 'Linh Trung', 'Thảo Điền']
+    },
+    'Đà Nẵng': {
+        'Hải Châu': ['Bình Hiên', 'Hòa Cường Bắc', 'Hòa Thuận Đông'],
+        'Sơn Trà': ['An Hải Bắc', 'Mân Thái', 'Phước Mỹ']
+    },
+    'Cần Thơ': {
+        'Ninh Kiều': ['An Khánh', 'An Nghiệp', 'Cái Khế'],
+        'Bình Thủy': ['An Thới', 'Bình Thủy', 'Trà An']
+    }
+};
+
+function fillSelect(select, values, placeholder) {
+    select.innerHTML = `<option value="">${placeholder}</option>${values.map((value) => `<option value="${value}">${value}</option>`).join('')}`;
+}
+
+function showCheckoutModal(productName = 'sản phẩm') {
+    if (!requireLogin('mua ngay')) return;
+    document.getElementById('checkout-modal')?.remove();
+    const savedAddress = JSON.parse(localStorage.getItem(SHIPPING_ADDRESS_KEY) || 'null') || {};
+    const modal = document.createElement('div');
+    modal.id = 'checkout-modal';
+    modal.className = 'auth-modal active';
+    modal.innerHTML = `<div class="auth-modal-box checkout-box">
+        <button class="auth-close-btn" type="button" aria-label="Đóng">×</button>
+        <h3>Địa chỉ giao hàng</h3>
+        <p>Sản phẩm: <strong>${productName}</strong></p>
+        <form id="shipping-address-form">
+            <div class="address-grid">
+                <label>Họ tên người nhận<input name="recipient" required value="${savedAddress.recipient || ''}" placeholder="Nhập họ tên"></label>
+                <label>Số điện thoại<input name="phone" required pattern="[0-9]{9,11}" value="${savedAddress.phone || ''}" placeholder="Ví dụ: 0901234567"></label>
+                <label>Tỉnh/Thành phố<select name="city" id="shipping-city" required></select></label>
+                <label>Quận/Huyện<select name="district" id="shipping-district" required disabled></select></label>
+                <label class="full-width">Phường/Xã<select name="ward" id="shipping-ward" required disabled></select></label>
+                <label class="full-width">Địa chỉ cụ thể<input name="detail" required value="${savedAddress.detail || ''}" placeholder="Số nhà, tên đường"></label>
+            </div>
+            <button class="checkout-submit" type="submit">Xác nhận đặt hàng</button>
+            <div class="role-panel-message" id="shipping-message"></div>
+        </form>
+    </div>`;
+    document.body.appendChild(modal);
+    const form = modal.querySelector('#shipping-address-form');
+    const city = modal.querySelector('#shipping-city');
+    const district = modal.querySelector('#shipping-district');
+    const ward = modal.querySelector('#shipping-ward');
+    const message = modal.querySelector('#shipping-message');
+    fillSelect(city, Object.keys(addressData), 'Chọn Tỉnh/Thành phố');
+    const updateDistricts = () => {
+        fillSelect(district, Object.keys(addressData[city.value] || {}), 'Chọn Quận/Huyện');
+        district.disabled = !city.value;
+        fillSelect(ward, [], 'Chọn Phường/Xã');
+        ward.disabled = true;
+    };
+    const updateWards = () => {
+        fillSelect(ward, addressData[city.value]?.[district.value] || [], 'Chọn Phường/Xã');
+        ward.disabled = !district.value;
+    };
+    city.addEventListener('change', updateDistricts);
+    district.addEventListener('change', updateWards);
+    if (savedAddress.city && addressData[savedAddress.city]) {
+        city.value = savedAddress.city; updateDistricts(); district.value = savedAddress.district || ''; updateWards(); ward.value = savedAddress.ward || '';
+    }
+    modal.querySelector('.auth-close-btn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const shippingAddress = Object.fromEntries(new FormData(form).entries());
+        localStorage.setItem(SHIPPING_ADDRESS_KEY, JSON.stringify(shippingAddress));
+        message.textContent = `Đã xác nhận giao ${productName} tới ${shippingAddress.detail}, ${shippingAddress.ward}, ${shippingAddress.district}, ${shippingAddress.city}.`;
+        message.style.color = '#2c7a2c';
+    });
+}
+
+async function submitProductFromPanel(form, messageEl) {
+    const user = getCurrentUser();
+    const product = Object.fromEntries(new FormData(form).entries());
+    product.price = Number(product.price);
+    product.rating = Number(product.rating || 5);
+    const response = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+        body: JSON.stringify(product)
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.message || 'Không thể thêm sản phẩm.');
+    form.reset();
+    messageEl.textContent = `Đã thêm sản phẩm: ${data.data.name}`;
+    messageEl.style.color = '#2c7a2c';
+}
+
+async function showStaffManagement(content, user) {
+    content.innerHTML = `
+        <h4>Quản lý nhân viên</h4>
+        <form class="role-form" id="staff-create-form">
+            <input name="name" placeholder="Họ tên nhân viên" required>
+            <input name="email" type="email" placeholder="Email" required>
+            <input name="password" type="password" placeholder="Mật khẩu" required>
+            <button type="submit">Tạo nhân viên</button>
+        </form>
+        <div class="role-panel-message"></div>
+        <div id="staff-list-container"></div>`;
+    const message = content.querySelector('.role-panel-message');
+    const list = content.querySelector('#staff-list-container');
+    const loadList = async () => {
+        const response = await fetch(`${API_BASE_URL}/auth/users`, { headers: { Authorization: `Bearer ${user.token}` } });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tải danh sách tài khoản.');
+        const users = data.users.filter((item) => item.role !== 'manager');
+        list.innerHTML = users.length
+            ? `<table class="staff-list"><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th></tr></thead><tbody>${users.map((item) => `<tr><td>${item.name}</td><td>${item.email}</td><td>${getRoleLabel(item.role)}</td></tr>`).join('')}</tbody></table>`
+            : '<p>Chưa có nhân viên hoặc khách hàng.</p>';
+    };
+    try { await loadList(); } catch (error) { message.textContent = error.message; message.style.color = '#c0392b'; }
+    content.querySelector('#staff-create-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/users/staff`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+                body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget).entries()))
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tạo nhân viên.');
+            event.currentTarget.reset();
+            message.textContent = `Đã tạo nhân viên: ${data.user.name}`;
+            message.style.color = '#2c7a2c';
+            await loadList();
+        } catch (error) { message.textContent = error.message; message.style.color = '#c0392b'; }
+    });
+}
+
+function showRolePanel(user) {
+    if (!['manager', 'staff'].includes(user.role)) {
+        if (window.confirm(`Bạn đang đăng nhập với vai trò ${getRoleLabel(user.role)}. Bạn muốn đăng xuất?`)) logoutUser();
+        return;
+    }
+    closeRolePanel();
+    const modal = document.createElement('div');
+    modal.id = 'role-panel-modal';
+    modal.className = 'auth-modal active';
+    const managerControls = user.role === 'manager'
+        ? '<button type="button" data-action="staff">Quản lý nhân viên</button>'
+        : '';
+    modal.innerHTML = `<div class="auth-modal-box role-panel-box">
+        <button class="auth-close-btn" type="button" aria-label="Đóng">×</button>
+        <h3>Bảng điều khiển ${getRoleLabel(user.role)}</h3>
+        <p>Chọn chức năng bạn được cấp quyền sử dụng.</p>
+        <div class="role-panel-actions"><button type="button" data-action="product">Thêm sản phẩm</button>${managerControls}<button type="button" class="secondary" data-action="logout">Đăng xuất</button></div>
+        <div id="role-panel-content"></div></div>`;
+    document.body.appendChild(modal);
+    const content = modal.querySelector('#role-panel-content');
+    modal.querySelector('.auth-close-btn').addEventListener('click', closeRolePanel);
+    modal.addEventListener('click', (event) => { if (event.target === modal) closeRolePanel(); });
+    modal.querySelector('[data-action="product"]').addEventListener('click', () => {
+        content.innerHTML = `<h4>Thêm sản phẩm</h4><form class="role-form" id="product-create-form">
+            <input name="name" placeholder="Tên sản phẩm" required><input name="brand" placeholder="Thương hiệu" required>
+            <input name="price" type="number" min="1" placeholder="Giá (VNĐ)" required>
+            <select name="category" required><option value="Nam">Đồng hồ Nam</option><option value="Nữ">Đồng hồ Nữ</option></select>
+            <input name="imageUrl" type="url" placeholder="Link hình ảnh" required>
+            <input name="rating" type="number" min="0" max="5" step="0.1" value="5"><button type="submit">Lưu sản phẩm</button>
+            </form><div class="role-panel-message"></div>`;
+        const form = content.querySelector('#product-create-form');
+        const message = content.querySelector('.role-panel-message');
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try { await submitProductFromPanel(form, message); }
+            catch (error) { message.textContent = error.message; message.style.color = '#c0392b'; }
+        });
+    });
+    modal.querySelector('[data-action="staff"]')?.addEventListener('click', () => showStaffManagement(content, user));
+    modal.querySelector('[data-action="logout"]').addEventListener('click', logoutUser);
+}
+
 function updateUserIcon(user) {
     const userIcon = document.getElementById('user-icon');
     if (!userIcon) return;
@@ -380,7 +609,22 @@ function updateUserIcon(user) {
         icon.className = user ? 'fas fa-user-check' : 'far fa-user';
     }
     userIcon.style.color = user ? '#d4af37' : '#fff';
-    userIcon.title = user ? `Đã đăng nhập: ${user.email}` : 'Đăng nhập';
+    const oldBadge = userIcon.querySelector('.user-role-badge');
+    if (oldBadge) oldBadge.remove();
+
+    const roleLabels = {
+        manager: 'Quản lý',
+        staff: 'Nhân viên',
+        customer: 'Khách hàng'
+    };
+    const roleLabel = roleLabels[user?.role] || roleLabels.customer;
+    if (user) {
+        const badge = document.createElement('span');
+        badge.className = 'user-role-badge';
+        badge.textContent = roleLabel;
+        userIcon.appendChild(badge);
+    }
+    userIcon.title = user ? `Đã đăng nhập: ${user.email} (${roleLabel})` : 'Đăng nhập';
 }
 
 function updateAuthUI() {
@@ -491,14 +735,7 @@ function bindAuthEvents() {
             event.preventDefault();
             const user = getCurrentUser();
             if (user) {
-                const confirmLogout = window.confirm('Bạn muốn đăng xuất khỏi hệ thống?');
-                if (confirmLogout) {
-                    clearCurrentUser();
-                    resetAuthForm();
-                    setAuthMode('login');
-                    updateAuthUI();
-                    alert('Đã đăng xuất');
-                }
+                showRolePanel(user);
             } else {
                 showAuthModal();
             }
@@ -540,10 +777,7 @@ function requireLogin(actionName = 'thực hiện thao tác này') {
 }
 
 function handleProtectedBuyNow(productName = 'sản phẩm') {
-    if (!requireLogin('mua ngay')) {
-        return;
-    }
-    alert(`Đã đăng nhập. Bạn có thể tiếp tục mua "${productName}".`);
+    showCheckoutModal(productName);
 }
 
 function handleProtectedAddToCart(productId, productName = 'sản phẩm') {
@@ -575,6 +809,7 @@ window.CHRONOS_AUTH = {
     getCurrentUser,
     requireLogin,
     handleProtectedBuyNow,
+    showCheckoutModal,
     handleProtectedAddToCart,
     handleToggleWishlist,
     getCartCount,
