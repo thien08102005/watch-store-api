@@ -78,40 +78,74 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             const wishlistContainer = document.getElementById('wishlist-container');
-            const wishlistItems = getWishlistItems();
-            updateHeaderCounts();
-            const productMap = await fetchProductMap();
 
-            if (!wishlistItems.length) {
-                wishlistContainer.innerHTML = `
-                    <div class="empty-state">
-                        <h3>Chưa có sản phẩm yêu thích.</h3>
-                        <p>Hãy vào trang sản phẩm và thêm những mẫu đồng hồ bạn yêu thích vào đây.</p>
-                    </div>
-                `;
-                return;
-            }
+            const renderWishlist = async () => {
+                const wishlistItems = getWishlistItems();
+                updateHeaderCounts();
+                const productMap = await fetchProductMap();
 
-            wishlistContainer.innerHTML = wishlistItems.map(item => {
-                const product = productMap[item.id] || {};
-                const imageUrl = product.imageUrl || item.imageUrl || 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?q=80&w=500';
-                const price = product.price || item.price;
-                const brand = product.brand || item.brand || 'Chưa xác định';
-                return `
-                    <div class="wishlist-card">
-                        <img src="${imageUrl}" alt="${item.name}">
-                        <div class="wishlist-info">
-                            <h2>${item.name}</h2>
-                            <p>Giá: ${price ? price.toLocaleString('vi-VN') + ' đ' : 'Chưa có giá'}</p>
-                            <p>Thương hiệu: ${brand}</p>
+                if (!wishlistItems.length) {
+                    wishlistContainer.innerHTML = `
+                        <div class="empty-state">
+                            <h3>Chưa có sản phẩm yêu thích.</h3>
+                            <p>Hãy vào trang sản phẩm và thêm những mẫu đồng hồ bạn yêu thích vào đây.</p>
                         </div>
-                        <div class="wishlist-actions">
-                            <button class="btn-cart" onclick="window.CHRONOS_AUTH?.handleProtectedAddToCart('${item.id}', '${item.name}')">Thêm vào giỏ</button>
-                            <button class="btn-remove" onclick="window.CHRONOS_AUTH?.handleToggleWishlist('${item.id}', '${item.name}')">Xóa khỏi yêu thích</button>
+                    `;
+                    return;
+                }
+
+                wishlistContainer.innerHTML = wishlistItems.map(item => {
+                    const product = productMap[item.id] || {};
+                    const imageUrl = product.imageUrl || item.imageUrl || 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?q=80&w=500';
+                    const price = product.price || item.price;
+                    const brand = product.brand || item.brand || 'Chưa xác định';
+                    return `
+                        <div class="wishlist-card">
+                            <img src="${imageUrl}" alt="${item.name}">
+                            <div class="wishlist-info">
+                                <h2>${item.name}</h2>
+                                <p>Giá: ${price ? price.toLocaleString('vi-VN') + ' đ' : 'Chưa có giá'}</p>
+                                <p>Thương hiệu: ${brand}</p>
+                            </div>
+                            <div class="wishlist-actions">
+                                <button class="btn-cart" data-action="add-cart" data-product-id="${item.id}" data-product-name=${JSON.stringify(item.name)}>Thêm vào giỏ</button>
+                                <button class="btn-remove" data-action="remove-wishlist" data-product-id="${item.id}" data-product-name=${JSON.stringify(item.name)}>Xóa khỏi yêu thích</button>
+                            </div>
                         </div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+
+                wishlistContainer.querySelectorAll('button[data-action="add-cart"]').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const productId = button.dataset.productId;
+                        const productName = button.dataset.productName;
+                        window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName);
+                    });
+                });
+
+                wishlistContainer.querySelectorAll('button[data-action="remove-wishlist"]').forEach(button => {
+                    button.addEventListener('click', async () => {
+                        const productId = button.dataset.productId;
+                        const productName = button.dataset.productName;
+                        const result = window.CHRONOS_AUTH?.handleToggleWishlist(productId, productName);
+                        if (result && !result.added) {
+                            const card = button.closest('.wishlist-card');
+                            if (card) card.remove();
+                            updateHeaderCounts();
+                            if (!wishlistContainer.querySelector('.wishlist-card')) {
+                                wishlistContainer.innerHTML = `
+                                    <div class="empty-state">
+                                        <h3>Chưa có sản phẩm yêu thích.</h3>
+                                        <p>Hãy vào trang sản phẩm và thêm những mẫu đồng hồ bạn yêu thích vào đây.</p>
+                                    </div>
+                                `;
+                            }
+                        }
+                    });
+                });
+            };
+
+            await renderWishlist();
         });
     </script>
 </body>

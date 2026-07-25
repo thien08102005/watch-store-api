@@ -556,7 +556,7 @@ function handleProtectedAddToCart(productId, productName = 'sản phẩm') {
 
 function handleToggleWishlist(productId, productName = 'sản phẩm', buttonElement = null) {
     if (!requireLogin('thêm hoặc xóa yêu thích')) {
-        return;
+        return null;
     }
     const result = toggleWishlist(productId, productName);
     if (buttonElement) {
@@ -568,6 +568,7 @@ function handleToggleWishlist(productId, productName = 'sản phẩm', buttonEle
     } else {
         alert(`Đã xóa "${result.name}" khỏi yêu thích.`);
     }
+    return result;
 }
 
 window.CHRONOS_AUTH = {
