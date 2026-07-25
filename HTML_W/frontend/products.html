@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh mục sản phẩm - Chronos</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Reset cơ bản và Menu */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #fff; color: #333; }
+        
+        /* Header Đen - Vàng */
+        header { background-color: #000; padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; }
+        .logo { color: #d4af37; font-size: 24px; font-weight: bold; text-decoration: none; letter-spacing: 2px; }
+        .nav-menu a { color: #fff; text-decoration: none; margin: 0 15px; font-size: 14px; font-weight: 500; transition: color 0.3s; }
+        .nav-menu a:hover { color: #d4af37; }
+        .nav-icons { color: #fff; font-size: 18px; display: flex; align-items: center; gap: 15px; }
+        .nav-icons .icon-button { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; position: relative; }
+        .nav-icons .icon-button:hover { background: rgba(255,255,255,0.16); }
+        .nav-icons .icon-button .icon-count { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; background: #d4af37; color: #000; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; padding: 0 4px; }
+        .nav-icons i { cursor: pointer; transition: color 0.3s; }
+        .nav-icons i:hover { color: #d4af37; }
+
+        .search-container { position: relative; display: flex; align-items: center; }
+        .search-input-header {
+            position: absolute;
+            right: 32px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            opacity: 0;
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            outline: none;
+            transition: all 0.3s ease-in-out;
+            background-color: #fff;
+            color: #333;
+            font-size: 14px;
+            pointer-events: none;
+        }
+        .search-input-header.active {
+            width: 220px;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Tiêu đề danh mục */
+        .category-header { padding: 40px 5% 20px; border-bottom: 1px solid #eee; margin-bottom: 30px; }
+        .category-header h1 { font-size: 28px; text-transform: uppercase; margin-bottom: 10px; }
+        .category-header p { color: #666; font-style: italic; max-width: 800px; font-size: 15px; line-height: 1.6; }
+        
+        /* Thanh công cụ (Sắp xếp) */
+        .toolbar { display: flex; justify-content: flex-end; padding: 0 5% 20px; }
+        .toolbar select { padding: 8px 15px; border: 1px solid #ccc; border-radius: 20px; outline: none; cursor: pointer; }
+
+        /* 🔥 1. Thiết lập lưới 4 cột đều nhau */
+        .product-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 25px; 
+            padding: 0 5% 50px; 
+        }
+        
+        /* 🔥 2. Cố định kiểu dáng từng Card sản phẩm để không bị lệch */
+        .product-card { 
+            background: #fff;
+            border: 1px solid #eaeaea;
+            border-radius: 8px;
+            padding: 15px;
+            position: relative; 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.3s; 
+            cursor: pointer; 
+        }
+        .product-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 🔥 3. Cố định kích thước ảnh đồng đều */
+        .product-card img { 
+            width: 100%; 
+            height: 220px;          /* Chiều cao chuẩn cho mọi ảnh */
+            object-fit: contain;    /* Chống méo ảnh */
+            margin-bottom: 12px; 
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        /* Huy hiệu NEW */
+        .badge-new { position: absolute; top: 20px; left: 20px; background: #d4af37; color: #000; font-size: 11px; font-weight: bold; padding: 4px 8px; border-radius: 50px; z-index: 2; }
+        
+        /* Thông tin chữ */
+        .product-name { 
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #333; 
+            text-transform: uppercase; 
+            margin-bottom: 5px; 
+            min-height: 40px; 
+            overflow: hidden;
+            display: -webkit-box;
+            line-clamp: 2;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .product-sku { font-size: 13px; font-weight: bold; color: #000; margin-bottom: 5px; }
+        .product-specs { font-size: 12px; color: #888; margin-bottom: 10px; }
+        .product-price { font-size: 16px; font-weight: 700; color: #d4af37; margin-bottom: 15px; }
+        
+        /* Nút thêm vào giỏ */
+        .btn-add-cart { 
+            display: inline-block; 
+            width: calc(50% - 8px);
+            padding: 10px 0; 
+            background: #000; 
+            color: #d4af37; 
+            text-decoration: none; 
+            font-weight: bold; 
+            font-size: 13px; 
+            border-radius: 25px; 
+            opacity: 0; 
+            transition: all 0.3s; 
+            transform: translateY(10px); 
+            border: 1px solid #000; 
+            text-align: center;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        .product-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .product-card:hover .btn-add-cart,
+        .product-card:hover .btn-wishlist {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .btn-wishlist {
+            display: inline-block;
+            width: calc(50% - 8px);
+            padding: 10px 0;
+            background: #f5f5f5;
+            color: #000;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 13px;
+            border-radius: 25px;
+            opacity: 0;
+            transition: all 0.3s;
+            transform: translateY(10px);
+            border: 1px solid #d4af37;
+            cursor: pointer;
+        }
+        .btn-wishlist.active {
+            background: #d4af37;
+            color: #000;
+        }
+        .btn-add-cart:hover { background: #d4af37; color: #000; }
+        .btn-wishlist:hover { background: #d4af37; color: #000; }
+
+        /* Responsive */
+        @media (max-width: 1024px) { .product-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 768px) { .product-grid { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <a href="index.html" class="logo">CHRONOS</a>
+        <nav class="nav-menu">
+            <a href="index.html">TRANG CHỦ</a>
+            <a href="products.html?category=Nam">ĐỒNG HỒ NAM</a>
+            <a href="products.html?category=Nữ">ĐỒNG HỒ NỮ</a>
+            <a href="brands.html">THƯƠNG HIỆU</a>
+            <a href="products.html?category=Bán chạy">BÁN CHẠY</a>
+            <a href="contact.html">LIÊN HỆ</a>
+        </nav>
+        <div class="nav-icons">
+            <div class="search-container">
+                <input type="text" id="header-search-input" class="search-input-header" placeholder="Nhập tên đồng hồ, hãng...">
+                <i class="fas fa-search" id="search-icon"></i>
+            </div>
+            <a href="#" class="icon-button" id="user-icon"><i class="far fa-user"></i></a>
+            <a href="#" class="icon-button" id="wishlist-icon"><i class="fas fa-heart"></i><span class="icon-count" id="wishlist-count">0</span></a>
+            <a href="#" class="icon-button" id="cart-icon"><i class="fas fa-shopping-cart"></i><span class="icon-count" id="cart-count">0</span></a>
+        </div>
+    </header>
+
+    <!-- Tiêu đề danh mục -->
+    <div class="category-header">
+        <h1 id="page-title">Đang tải...</h1>
+        <p id="page-desc">...</p>
+    </div>
+
+    <!-- Thanh sắp xếp (Đã thêm id="sort-select" và các option value) -->
+    <div class="toolbar">
+        <select id="sort-select">
+            <option value="default">Sản phẩm ưu tiên</option>
+            <option value="asc">Giá từ thấp đến cao</option>
+            <option value="desc">Giá từ cao đến thấp</option>
+            <option value="newest">Mới nhất</option>
+        </select>
+    </div>
+
+    <!-- Nơi chứa sản phẩm -->
+    <div class="product-grid" id="product-list">
+        <!-- JS sẽ render sản phẩm vào đây -->
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/products.js"></script>
+</body>
+</html>

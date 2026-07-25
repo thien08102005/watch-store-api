@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giỏ hàng - Chronos</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f7f7f7; color: #222; }
+        header { background: #000; color: #fff; padding: 16px 5%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .logo { color: #d4af37; font-size: 24px; font-weight: 700; text-decoration: none; }
+        .nav-menu { display: flex; gap: 18px; align-items: center; }
+        .nav-menu a { color: #fff; text-decoration: none; font-size: 14px; }
+        .nav-menu a:hover { color: #d4af37; }
+        .nav-icons { display: flex; align-items: center; gap: 18px; }
+        .icon-button { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; }
+        .icon-count { position: absolute; top: -8px; right: -8px; min-width: 18px; height: 18px; background: #d4af37; color: #000; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; padding: 0 4px; }
+        .page-heading { max-width: 1200px; margin: 30px auto 0; padding: 0 20px; }
+        .page-heading h1 { margin-bottom: 8px; font-size: 28px; }
+        .page-heading p { color: #555; }
+        .cart-grid { max-width: 1200px; margin: 20px auto; padding: 0 20px; display: grid; gap: 18px; }
+        .cart-card { background: #fff; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); padding: 18px; display: grid; grid-template-columns: 140px 1fr 200px; gap: 18px; align-items: center; }
+        .cart-card img { width: 100%; height: 120px; object-fit: contain; border-radius: 10px; }
+        .cart-info h2 { margin: 0 0 8px; font-size: 18px; }
+        .cart-info p { margin: 6px 0; color: #555; font-size: 14px; }
+        .cart-actions { display: flex; flex-direction: column; gap: 10px; }
+        .cart-actions button, .cart-quantity button { padding: 10px 14px; border-radius: 999px; border: none; font-weight: 700; cursor: pointer; }
+        .cart-actions button { width: 100%; }
+        .cart-quantity { display: flex; gap: 8px; align-items: center; }
+        .cart-quantity span { min-width: 26px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+        .btn-remove { background: #f7f7f7; color: #000; border: 1px solid #d4af37; }
+        .btn-checkout { background: #d4af37; color: #000; }
+        .empty-state { text-align: center; padding: 80px 20px; background: #fff; border-radius: 14px; box-shadow: 0 10px 24px rgba(0,0,0,0.05); }
+        .empty-state h3 { margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="index.html" class="logo">CHRONOS</a>
+        <nav class="nav-menu">
+            <a href="index.html">TRANG CHỦ</a>
+            <a href="products.html?category=Nam">ĐỒNG HỒ NAM</a>
+            <a href="products.html?category=Nữ">ĐỒNG HỒ NỮ</a>
+            <a href="brands.html">THƯƠNG HIỆU</a>
+        </nav>
+        <div class="nav-icons">
+            <a href="#" class="icon-button" id="wishlist-icon"><i class="fas fa-heart"></i><span class="icon-count" id="wishlist-count">0</span></a>
+            <a href="#" class="icon-button" id="cart-icon"><i class="fas fa-shopping-cart"></i><span class="icon-count" id="cart-count">0</span></a>
+            <a href="#" class="icon-button" id="user-icon"><i class="far fa-user"></i></a>
+        </div>
+    </header>
+
+    <section class="page-heading">
+        <h1>Giỏ hàng của bạn</h1>
+        <p>Xem lại sản phẩm đã thêm và chỉnh sửa số lượng trước khi thanh toán.</p>
+    </section>
+
+    <section class="cart-grid" id="cart-container">
+        <div class="empty-state">
+            <h3>Giỏ hàng trống.</h3>
+            <p>Chọn sản phẩm bạn muốn mua và thêm vào giỏ.</p>
+        </div>
+    </section>
+
+    <script src="js/auth.js"></script>
+    <script>
+        async function fetchProductMap() {
+            try {
+                const response = await fetch('http://localhost:5000/api/products');
+                const data = await response.json();
+                const products = Array.isArray(data) ? data : data.data || data.products || [];
+                return products.reduce((map, product) => {
+                    map[product._id] = product;
+                    return map;
+                }, {});
+            } catch (error) {
+                console.error('Lỗi lấy sản phẩm:', error);
+                return {};
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const cartContainer = document.getElementById('cart-container');
+            const cartItems = getCartItems();
+            updateHeaderCounts();
+            const productMap = await fetchProductMap();
+
+            if (!cartItems.length) {
+                cartContainer.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Giỏ hàng trống.</h3>
+                        <p>Chọn sản phẩm bạn muốn mua và thêm vào giỏ.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            cartContainer.innerHTML = cartItems.map(item => {
+                const product = productMap[item.id] || {};
+                const imageUrl = product.imageUrl || item.imageUrl || 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?q=80&w=500';
+                const price = product.price || item.price;
+                const quantity = item.quantity || 1;
+                return `
+                    <div class="cart-card">
+                        <img src="${imageUrl}" alt="${item.name}">
+                        <div class="cart-info">
+                            <h2>${item.name}</h2>
+                            <p>Giá: ${price ? price.toLocaleString('vi-VN') + ' đ' : 'Chưa có giá'}</p>
+                            <p>Số lượng: ${quantity}</p>
+                        </div>
+                        <div class="cart-actions">
+                            <button class="btn-checkout" onclick="alert('Đi tới trang thanh toán...')">Thanh toán</button>
+                            <button class="btn-remove" onclick="(function(){ const updated = getCartItems().filter(it => it.id !== '${item.id}'); saveCartItems(updated); window.location.reload(); })()">Xóa</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronos - Cửa hàng đồng hồ</title>
+    <!-- Thêm thư viện FontAwesome để hiển thị icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+
+        /* Vùng chứa icon tìm kiếm và ô input */
+.search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* Ẩn ô input mặc định hoặc chỉnh style cho nó trượt ra */
+.search-input-header {
+    position: absolute;
+    right: 40px; /* Đặt sang bên trái icon kính lúp */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    opacity: 0;
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    outline: none;
+    transition: all 0.3s ease-in-out;
+    background-color: #fff;
+    color: #333;
+    font-size: 14px;
+    pointer-events: none; /* Không cho click khi đang ẩn */
+}
+
+/* Khi có class .active thì mở rộng thanh input ra */
+.search-input-header.active {
+    width: 220px;
+    opacity: 1;
+    pointer-events: auto;
+}
+        /* CSS Reset & Cơ bản */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            color: #333;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        /* Header Cố định (Thanh điều hướng) */
+        header {
+            background-color: #050505;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 50px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            height: 60px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #d4af37;
+            font-family: 'Times New Roman', Times, serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Layout cho Menu ở giữa */
+        nav {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 25px;
+        }
+
+        nav ul li a {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #fff;
+            transition: color 0.3s;
+        }
+
+        nav ul li a:hover, nav ul li a.active {
+            color: #d4af37;
+        }
+
+        /* Layout cho Icons bên phải */
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 16px;
+            color: #fff;
+            margin-left: auto;
+        }
+        .header-icons .icon-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            text-decoration: none;
+            position: relative;
+        }
+        .header-icons .icon-button:hover {
+            background: rgba(255,255,255,0.16);
+        }
+        .header-icons .icon-button .icon-count {
+            position: absolute;
+            top: -7px;
+            right: -7px;
+            min-width: 18px;
+            height: 18px;
+            background: #d4af37;
+            color: #000;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 0 4px;
+        }
+        .header-icons i:hover {
+            color: #d4af37;
+            cursor: pointer;
+        }
+
+        .auth-status {
+            font-size: 12px;
+            color: #d4af37;
+            margin-left: 6px;
+        }
+
+        /* Banner chính (Hero Section) */
+        .hero {
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('Image/banner.png') no-repeat center center/cover;
+            height: 500px;
+            display: flex;
+            align-items: center;
+            padding-left: 10%;
+            margin-top: 60px;
+        }
+
+        .hero-content {
+            color: #fff;
+            max-width: 400px;
+        }
+
+        .hero-content h1 {
+            font-size: 40px;
+            margin-bottom: 20px;
+            line-height: 1.2;
+            font-weight: 400;
+        }
+
+        .btn-primary {
+            background-color: #d4af37;
+            color: #000;
+            padding: 12px 24px;
+            border: none;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+            text-transform: uppercase;
+        }
+
+        .btn-primary:hover {
+            background-color: #b5952f;
+        }
+
+        /* Danh mục nổi bật (Categories) */
+        .categories {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            padding: 40px 50px;
+            background-color: #fff;
+        }
+
+        .category-item {
+            position: relative;
+            height: 120px;
+            background-color: #222;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .category-item:nth-child(1) {
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('Image/watch_1.png') no-repeat center center/cover;
+        }
+        
+        .category-item:nth-child(2) {
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('Image/watch_2(1).png') no-repeat center center/cover;
+        }
+        
+        .category-item:nth-child(3) {
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('Image/watch_4.png') no-repeat center center/cover;
+        }
+        
+        .category-item:nth-child(4) {
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('Image/watch_3.png') no-repeat center center/cover;
+        }
+
+        .category-item img {
+            width: 80px;
+            height: auto;
+        }
+
+        .category-info h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            font-weight: normal;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #d4af37;
+            color: #d4af37;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-outline:hover {
+            background: #d4af37;
+            color: #000;
+        }
+
+        /* Sản phẩm (Products) */
+        .products {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            padding: 0 50px 50px 50px;
+            background-color: #fff;
+        }
+
+        .product-card {
+            border: 1px solid #eee;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            transition: box-shadow 0.3s;
+            border-radius: 8px;
+        }
+
+        .product-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .product-card img {
+            max-width: 100%;
+            height: 200px;
+            object-fit: contain;
+            margin-bottom: 15px;
+        }
+
+        .rating {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .rating i {
+            color: #ffc107;
+        }
+
+        .product-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 12px;
+        }
+
+        .product-actions button {
+            flex: 1 1 120px;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .btn-add-cart {
+            background: #000;
+            color: #d4af37;
+        }
+
+        .btn-add-cart:hover {
+            background: #d4af37;
+            color: #000;
+        }
+
+        .btn-wishlist {
+            background: #f5f5f5;
+            color: #000;
+            border: 1px solid #d4af37;
+        }
+
+        .btn-wishlist.active,
+        .btn-wishlist:hover {
+            background: #d4af37;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Cố định -->
+    <header>
+        <div class="logo">CHRONOS</div>
+        <nav>
+            <ul>
+                <li><a href="index.html" class="active">Trang chủ</a></li>
+                <li><a href="products.html?category=Nam">Đồng hồ nam</a></li>
+                <li><a href="products.html?category=Nữ">Đồng hồ nữ</a></li>
+                <li><a href="products.html?category=Thương hiệu">Thương hiệu</a></li>
+                <li><a href="products.html?category=Bán chạy">Bán chạy</a></li>
+                <li><a href="contact.html">Liên hệ</a></li>
+            </ul>
+        </nav>
+        <!-- Phần Icons bên phải đã được tích hợp thanh tìm kiếm -->
+        <div class="header-icons">
+            <div class="search-container">
+                <input type="text" id="header-search-input" class="search-input-header" placeholder="Nhập tên đồng hồ, hãng...">
+                <i class="fas fa-search" id="search-icon"></i>
+            </div>
+            <a href="#" class="icon-button" id="user-icon"><i class="far fa-user"></i></a>
+            <a href="#" class="icon-button" id="wishlist-icon"><i class="far fa-heart"></i><span class="icon-count" id="wishlist-count">0</span></a>
+            <a href="#" class="icon-button" id="cart-icon"><i class="fas fa-shopping-cart"></i><span class="icon-count" id="cart-count">0</span></a>
+        </div>
+    </header>
+
+    <!-- Hero Banner -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>KHÁM PHÁ THỜI GIAN HOÀN HẢO</h1>
+            <button class="btn-primary">Mua ngay</button>
+        </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section class="categories">
+        <div class="category-item">
+            <div class="category-info">
+                <h3>Đồng hồ Nam</h3>
+                <button class="btn-outline">Xem ngay</button>
+            </div>
+        </div>
+        <div class="category-item">
+            <div class="category-info">
+                <h3>Đồng hồ Nữ</h3>
+                <button class="btn-outline">Xem ngay</button>
+            </div>
+        </div>
+        <div class="category-item">
+            <div class="category-info">
+                <h3>Đồng hồ Thể thao</h3>
+                <button class="btn-outline">Xem ngay</button>
+            </div>
+        </div>
+        <div class="category-item">
+            <div class="category-info">
+                <h3>Đồng hồ Thụy Sỹ</h3>
+                <button class="btn-outline">Xem ngay</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dữ liệu Products Grid đã được làm trống và thêm id="product-list" -->
+    <section class="products" id="product-list">
+        <!-- Javascript sẽ tự động thêm các .product-card vào vị trí này -->
+    </section>
+
+    <!-- Footer section -->
+    <footer style="background-color: #000; color: #aaa; padding: 50px; text-align: center; border-top: 1px solid #1a1a1a;">
+        <div style="display: flex; justify-content: space-between; gap: 50px; text-align: left; max-width: 1200px; margin: 0 auto; padding-bottom: 30px; border-bottom: 1px solid #1a1a1a;">
+            <div>
+                <h4 style="color: #fff; margin-bottom: 15px;">DỊCH VỤ KHÁCH HÀNG</h4>
+                <a href="#">Hướng dẫn mua hàng</a><br>
+                <a href="#">Thanh toán và vận chuyển</a><br>
+                <a href="#">Chính sách bảo hành</a><br>
+                <a href="#">Tuyển dụng</a>
+            </div>
+            <div>
+                <h4 style="color: #fff; margin-bottom: 15px;">THƯƠNG HIỆU</h4>
+                <a href="#">Rolex</a><br>
+                <a href="#">Omega</a><br>
+                <a href="#">Tissot</a><br>
+                <a href="#">Casio</a>
+            </div>
+            <div>
+                <h4 style="color: #fff; margin-bottom: 15px;">LIÊN HỆ</h4>
+                Đại Học Trà Vinh, Vĩnh Long<br>
+                Hotline: 0379.911.633<br>
+                Email: vendinh.782311@gmail.com
+            </div>
+            <div>
+                <h4 style="color: #fff; margin-bottom: 15px;">KẾT NỐI VỚI CHÚNG TÔI</h4>
+                <i class="fab fa-facebook-f" style="color: #3b5998; font-size: 20px; margin-right: 15px;"></i>
+                <i class="fab fa-instagram" style="color: #e1306c; font-size: 20px;"></i>
+            </div>
+        </div>
+        <p style="margin-top: 30px;">© 2026 Chronos Watch. All Rights Reserved.</p>
+    </footer>
+
+    <!-- Đã thêm link nhúng file JS ở đây -->
+    <script src="js/auth.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
