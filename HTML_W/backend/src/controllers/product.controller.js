@@ -13,7 +13,7 @@ class ProductController {
 
   async createProduct(req, res) {
     try {
-      const { name, brand, price, category, imageUrl, rating } = req.body;
+      const { name, brand, price, category, size, imageUrl, rating, description } = req.body;
       const numericPrice = Number(price);
       if (!name || !brand || !category || !imageUrl || !Number.isFinite(numericPrice) || numericPrice <= 0) {
         return res.status(400).json({
@@ -28,7 +28,9 @@ class ProductController {
         brand: brand.trim(),
         price: numericPrice,
         category: category.trim(),
+        size: (size || '').trim(),
         imageUrl: imageUrl.trim(),
+        description: (description || '').trim(),
         ...(rating !== undefined && { rating: Number(rating) }),
         createdBy: req.user.id
       });

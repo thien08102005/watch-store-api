@@ -4,6 +4,36 @@ const WISHLIST_STORAGE_KEY = 'chronos_wishlist';
 const API_BASE_URL = 'http://localhost:5000/api';
 let currentAuthMode = 'login';
 
+const FALLBACK_BRANDS = [
+    { name: 'Movado' },
+    { name: 'Bering' },
+    { name: 'Omega' },
+    { name: 'Tissot' },
+    { name: 'Citizen' },
+    { name: 'Longines' },
+    { name: 'Enicar' },
+    { name: 'Gucci' },
+    { name: 'Mido' },
+    { name: 'Alfex' },
+    { name: 'Grovana' },
+    { name: 'Rado' },
+    { name: 'Tommy Hilfiger' },
+    { name: 'Lacoste' },
+    { name: 'Bulova' },
+    { name: 'Caravelle' },
+    { name: 'Calvin Klein' },
+    { name: 'Seiko' },
+    { name: 'Casio' },
+    { name: 'Scuderia Ferrari' },
+    { name: 'Raymond Weil' },
+    { name: 'Coach' }
+];
+
+function getBrandOptions() {
+    const brands = window.brands && Array.isArray(window.brands) ? window.brands : FALLBACK_BRANDS;
+    return brands.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
+}
+
 function getCurrentUser() {
     try {
         const raw = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -491,7 +521,6 @@ function showCheckoutModal(productName = 'sản phẩm') {
         city.value = savedAddress.city; updateDistricts(); district.value = savedAddress.district || ''; updateWards(); ward.value = savedAddress.ward || '';
     }
     modal.querySelector('.auth-close-btn').addEventListener('click', () => modal.remove());
-    modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
     form.addEventListener('submit', (event) => {
         event.preventDefault();
         const shippingAddress = Object.fromEntries(new FormData(form).entries());
@@ -516,6 +545,37 @@ async function submitProductFromPanel(form, messageEl) {
     form.reset();
     messageEl.textContent = `Đã thêm sản phẩm: ${data.data.name}`;
     messageEl.style.color = '#2c7a2c';
+}
+
+function showProductManagement(content) {
+    const brandOptions = getBrandOptions();
+    const brandField = `<select name="brand" required><option value="">Chọn thương hiệu</option>${brandOptions}</select>`;
+
+    content.innerHTML = `<h4>Thêm sản phẩm</h4><form class="role-form" id="product-create-form">
+            <input name="name" placeholder="Tên sản phẩm" required>
+            ${brandField}
+            <input name="price" type="number" min="1" placeholder="Giá (VNĐ)" required>
+            <select name="category" required><option value="Nam">Đồng hồ Nam</option><option value="Nữ">Đồng hồ Nữ</option></select>
+            <input name="size" placeholder="Size (ví dụ 40 mm)">
+            <input name="imageUrl" type="text" placeholder="URL hoặc đường dẫn ảnh (vd: Image/xxx.webp)" required>
+            <textarea name="description" rows="3" placeholder="Chi tiết sản phẩm"></textarea>
+            <input name="rating" type="number" min="0" max="5" step="0.1" value="5">
+            <button type="submit">Lưu sản phẩm</button>
+            </form><div class="role-panel-message"></div>`;
+
+    const form = content.querySelector('#product-create-form');
+    const message = content.querySelector('.role-panel-message');
+    if (!form || !message) return;
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+            await submitProductFromPanel(form, message);
+        } catch (error) {
+            message.textContent = error.message;
+            message.style.color = '#c0392b';
+        }
+    });
 }
 
 async function showStaffManagement(content, user) {
@@ -564,6 +624,7 @@ function showRolePanel(user) {
         if (window.confirm(`Bạn đang đăng nhập với vai trò ${getRoleLabel(user.role)}. Bạn muốn đăng xuất?`)) logoutUser();
         return;
     }
+    hideAuthModal();
     closeRolePanel();
     const modal = document.createElement('div');
     modal.id = 'role-panel-modal';
@@ -579,26 +640,25 @@ function showRolePanel(user) {
         <div id="role-panel-content"></div></div>`;
     document.body.appendChild(modal);
     const content = modal.querySelector('#role-panel-content');
-    modal.querySelector('.auth-close-btn').addEventListener('click', closeRolePanel);
-    modal.addEventListener('click', (event) => { if (event.target === modal) closeRolePanel(); });
-    modal.querySelector('[data-action="product"]').addEventListener('click', () => {
-        content.innerHTML = `<h4>Thêm sản phẩm</h4><form class="role-form" id="product-create-form">
-            <input name="name" placeholder="Tên sản phẩm" required><input name="brand" placeholder="Thương hiệu" required>
-            <input name="price" type="number" min="1" placeholder="Giá (VNĐ)" required>
-            <select name="category" required><option value="Nam">Đồng hồ Nam</option><option value="Nữ">Đồng hồ Nữ</option></select>
-            <input name="imageUrl" type="url" placeholder="Link hình ảnh" required>
-            <input name="rating" type="number" min="0" max="5" step="0.1" value="5"><button type="submit">Lưu sản phẩm</button>
-            </form><div class="role-panel-message"></div>`;
-        const form = content.querySelector('#product-create-form');
-        const message = content.querySelector('.role-panel-message');
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            try { await submitProductFromPanel(form, message); }
-            catch (error) { message.textContent = error.message; message.style.color = '#c0392b'; }
-        });
+    if (!content) {
+        console.error('Role panel content container not found.');
+        return;
+    }
+    modal.querySelector('.auth-close-btn')?.addEventListener('click', closeRolePanel);
+    const actionContainer = modal.querySelector('.role-panel-actions');
+    actionContainer?.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : event.target.parentElement;
+        const button = target?.closest?.('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+        if (action === 'product') {
+            showProductManagement(content);
+        } else if (action === 'staff') {
+            showStaffManagement(content, user);
+        } else if (action === 'logout') {
+            logoutUser();
+        }
     });
-    modal.querySelector('[data-action="staff"]')?.addEventListener('click', () => showStaffManagement(content, user));
-    modal.querySelector('[data-action="logout"]').addEventListener('click', logoutUser);
 }
 
 function updateUserIcon(user) {
@@ -644,13 +704,7 @@ function bindAuthEvents() {
         closeBtn.addEventListener('click', hideAuthModal);
     }
 
-    if (modal) {
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                hideAuthModal();
-            }
-        });
-    }
+    // Keep auth modal open until the user clicks the explicit close button.
 
     if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
