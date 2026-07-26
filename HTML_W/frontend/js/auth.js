@@ -1,6 +1,7 @@
 const AUTH_STORAGE_KEY = 'chronos_user';
 const CART_STORAGE_KEY = 'chronos_cart';
 const WISHLIST_STORAGE_KEY = 'chronos_wishlist';
+const ORDER_HISTORY_KEY = 'chronos_order_history';
 const API_BASE_URL = 'http://localhost:5000/api';
 let currentAuthMode = 'login';
 
@@ -451,22 +452,213 @@ function logoutUser() {
 const SHIPPING_ADDRESS_KEY = 'chronos_shipping_address';
 const addressData = {
     'Hà Nội': {
-        'Ba Đình': ['Phúc Xá', 'Trúc Bạch', 'Ngọc Hà'],
-        'Cầu Giấy': ['Dịch Vọng', 'Nghĩa Đô', 'Yên Hòa'],
-        'Hoàng Mai': ['Hoàng Liệt', 'Định Công', 'Mai Động']
+        'Ba Đình': ['Phúc Xá', 'Trúc Bạch', 'Ngọc Hà', 'Liễu Giai', 'Đội Cấn', 'Quán Thánh', 'Cống Vị'],
+        'Cầu Giấy': ['Dịch Vọng', 'Nghĩa Đô', 'Yên Hòa', 'Quan Hoa', 'Xuân Phương', 'Mỹ Đình', 'Cầu Giấy'],
+        'Hoàng Mai': ['Hoàng Liệt', 'Định Công', 'Mai Động', 'Cổ Nhuế', 'Hoàng Liệt', 'Thành Công', 'Cục Lộc'],
+        'Hai Bà Trưng': ['Bà Triệu', 'Tràng Tiền', 'Cửa Đông', 'Hàng Bạc', 'Hàng Ngoài', 'Hàng Điếu', 'Thanh Cương'],
+        'Đống Đa': ['Văn Chương', 'Trúc Bạch', 'Phúc Tân', 'Lý Nam Đế', 'Hàng Bông', 'Quan Nhân', 'Giảng Võ'],
+        'Tây Hồ': ['Tây Hồ', 'Phúc Thọ', 'Quảng An', 'Nhật Tân', 'Phú Thượng', 'Sài Đông', 'Ciputra'],
+        'Bắc Từ Liêm': ['Phương Canh', 'Sài Đông', 'Cầu Diễn', 'Mỗ Lao', 'Tuần', 'Thượng Cát', 'Xuân Phương'],
+        'Nam Từ Liêm': ['Mỹ Đình', 'Tây Mỗ', 'Dương Nội', 'Phú Lương', 'Cầu Diễn', 'Nam Từ Liêm'],
+        'Hà Đông': ['Phong Châu', 'An Dương', 'Vạn Phúc', 'Viên', 'Kim Giang', 'Vĩnh Hưng', 'An Dương'],
+        'Thanh Xuân': ['Khương Thượng', 'Khương Đình', 'Khương Mai', 'Khuất Duy Tiến', 'Thạch Bàn', 'Vĩnh Phúc', 'Hạ Đình']
     },
     'TP. Hồ Chí Minh': {
-        'Quận 1': ['Bến Nghé', 'Bến Thành', 'Cầu Ông Lãnh'],
-        'Quận 3': ['Phường 1', 'Phường 6', 'Phường 7'],
-        'TP. Thủ Đức': ['An Phú', 'Linh Trung', 'Thảo Điền']
+        'Quận 1': ['Bến Nghé', 'Bến Thành', 'Cầu Ông Lãnh', 'Nguyễn Hữu Cảnh', 'Tôn Đức Thắng', 'Tôn Thất Đạm'],
+        'Quận 3': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14'],
+        'Quận 4': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15', 'Phường 16', 'Phường 17', 'Phường 18'],
+        'Quận 5': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15', 'Phường 16'],
+        'Quận 6': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14'],
+        'Quận 7': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15', 'Phường 16', 'Phường 17', 'Phường 18', 'Phường 19'],
+        'Quận 8': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15', 'Phường 16'],
+        'Quận 9': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13'],
+        'Quận 10': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15', 'Phường 16'],
+        'Quận 11': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15', 'Phường 16'],
+        'Quận 12': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15', 'Phường 16'],
+        'TP. Thủ Đức': ['An Phú', 'Linh Trung', 'Thảo Điền', 'An Lợi Đông', 'Bình Thọ', 'Bình An', 'Cát Lái', 'Hiệp Phú', 'Phú Hữu', 'Saigon Hi-Tech Park', 'Saigon Pearl', 'Tân Hưng', 'Tân Phú', 'Tân Tạo'],
+        'Bình Thạnh': ['Thạnh Lộc', 'Thạnh Mỹ Lợi', 'Thạnh Toàn', 'An Lạc', 'An Phú', 'An Khánh', 'Bình Trưng Đông', 'Bình Trưng Tây', 'Bình Chiểu'],
+        'Gò Vấp': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15', 'Phường 16', 'Phường 17'],
+        'Tân Phú': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15'],
+        'Tân Bình': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15'],
+        'Phú Nhuận': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12', 'Phường 13', 'Phường 14', 'Phường 15', 'Phường 16', 'Phường 17']
+    },
+    'Hải Phòng': {
+        'Hồng Bàng': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8'],
+        'Ngô Quyền': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9'],
+        'Lê Chân': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8', 'Phường 9', 'Phường 10', 'Phường 11', 'Phường 12'],
+        'Kiến An': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7'],
+        'Thủy Nguyên': ['Đông Hải', 'Quảng Hưng', 'Nông Cống', 'An Dương', 'Yết Kiêu', 'Bạch Đằng', 'Vĩnh Khê'],
+        'Vân Đồn': ['Cái Rằng', 'Quảng Nham', 'Yên Hưng', 'Quảng Tây', 'Bạch Long Vỹ', 'Quan Lạn'],
+        'Cát Hải': ['Cát Hải', 'Cát Bà', 'Hải Sơn', 'Quảng Yên']
     },
     'Đà Nẵng': {
-        'Hải Châu': ['Bình Hiên', 'Hòa Cường Bắc', 'Hòa Thuận Đông'],
-        'Sơn Trà': ['An Hải Bắc', 'Mân Thái', 'Phước Mỹ']
+        'Hải Châu': ['Bình Hiên', 'Hòa Cường Bắc', 'Hòa Thuận Đông', 'Thạch Thang', 'Hòa Thuận Tây', 'Hòa Cường Nam', 'Nam Dương', 'Bình Thạnh'],
+        'Sơn Trà': ['An Hải Bắc', 'Mân Thái', 'Phước Mỹ', 'An Hải Đông', 'Thọ Quang', 'An Hải Tây'],
+        'Thanh Khê': ['Tân Chính', 'Thanh Bình', 'Thạch Thang', 'Hòa An', 'Hòa Khánh Tây', 'Hòa Khánh Đông'],
+        'Liên Chiểu': ['Liên Chiểu', 'Hoà Hiệp Bắc', 'Hoà Hiệp Nam', 'Chánh Mỹ', 'Ngũ Hành Sơn', 'Khuê Mỹ'],
+        'Ngũ Hành Sơn': ['Mỹ Ân', 'Khuê Mỹ', 'Hoà Bình', 'Phước Mỹ', 'Nại Hiên Đông', 'Nại Hiên Tây'],
+        'Cẩm Lệ': ['Hòa An', 'Hòa Vang', 'Hòa Xuân', 'Hòa Khương', 'Trường Xuân', 'Hòa Phong']
+    },
+    'Quảng Nam': {
+        'Hội An': ['Cẩm Phô', 'Cẩm Châu', 'Cẩm Hà', 'Tân Hội', 'Tân An', 'Tân Cương'],
+        'Tam Kỳ': ['Cửa Côn', 'Tân Cương', 'Quế Sơn', 'Điện Ngọc', 'Điện Phong', 'Mộ Đức'],
+        'Duy Xuyên': ['Duy Hải', 'Duy Phú', 'Duy Sơn', 'Duy Xuyên', 'Duy Phước', 'Duy Vinh'],
+        'Thăng Bình': ['Bình Hòa', 'Bình Dương', 'Bình Phú', 'Bình Định', 'Bình Mỹ'],
+        'Bình Sơn': ['Bình Hòa', 'Bình Dương', 'Bình Phú', 'Bình Sơn', 'Bình Tây'],
+        'Phú Ninh': ['Phú Sơn', 'Phú Thượng', 'Phú Tân', 'Phú Phong', 'Phú Mỹ'],
+        'Nước Ngoài': ['An Phú', 'An Ninh', 'An Chính', 'An Lạc', 'An Mỹ'],
+        'Núi Thành': ['Núi Thành', 'Núi Sơn', 'Núi Cơ', 'Núi Thịnh']
+    },
+    'Quảng Ngãi': {
+        'Quảng Ngãi': ['Hồng Phong', 'Lê Hồng Phong', 'Trần Hưng Đạo', 'Phan Bội Châu', 'Lý Tự Trọng'],
+        'Bình Sơn': ['Bình Hòa', 'Bình Dương', 'Bình Phú', 'Bình Sơn', 'Bình Tây'],
+        'Tư Nghĩa': ['Túy Phước', 'Tư Sơn', 'Tây Sơn', 'Tư Phương', 'Tư Vinh'],
+        'Mộ Đức': ['Mộ Đức', 'Mộ Sơn', 'Mộ Phú', 'Mộ Hòa'],
+        'Lý Sơn': ['An Phú', 'Tân Lân'],
+        'Nghĩa Hành': ['Nghĩa An', 'Nghĩa Sơn', 'Nghĩa Mỹ']
+    },
+    'Bình Định': {
+        'Qui Nhơn': ['Hoài Thanh', 'Hoài Nhơn', 'Trần Hưng Đạo', 'Nguyễn Huệ', 'Lê Lợi', 'Ngô Mây'],
+        'An Nhơn': ['Nhơn Hòa', 'Nhơn Phú', 'Nhơn Lý', 'Nhơn Mỹ', 'Nhơn Phương'],
+        'Phù Cát': ['Phù Cát', 'Phù Hòa', 'Phù Mỹ', 'Phù Sơn', 'Phù Tân'],
+        'Vạn Ninh': ['Vạn Tường', 'Vạn Hòa', 'Vạn Mỹ', 'Vạn Phong'],
+        'Hoài Ân': ['Hoài Thanh', 'Hoài Hoa', 'Hoài Phú'],
+        'Hoài Nhơn': ['Hoài Xuân', 'Hoài Ân', 'Hoài Đức']
+    },
+    'Phú Yên': {
+        'Tuy Hòa': ['Phú Nhuận', 'Phú Hài', 'Hòa Tú', 'Hòa Xuân', 'Hòa Hiệp', 'Phú Lạc'],
+        'Sông Cầu': ['Sông Cầu', 'Đông Tác', 'Tây Tác', 'Tân Tạo', 'Tân Thắng'],
+        'Đồng Xuân': ['Chư Sê', 'Chư Đông', 'Chư Nam', 'Chư Quảng', 'Chư Hu'],
+        'Tây Hòa': ['Tây Sơn', 'Tây Hòa', 'Tây Phú', 'Tây An'],
+        'Phú Hoà': ['Phú Lâm', 'Phú Tài', 'Phú Sơn', 'Phú Thạnh'],
+        'An Tường': ['An Lạc', 'An Tường', 'An Thịnh', 'An Hòa']
+    },
+    'Khánh Hòa': {
+        'Nha Trang': ['Vạn Thọ', 'Xương Huân', 'Phương Sài', 'Phương Mai', 'Vạn Yên', 'Vạn Hạnh'],
+        'Cam Ranh': ['Cam Lâm', 'Cam Phúc Tây', 'Cam Phúc Đông', 'Cam Tân', 'Cam Xuyên'],
+        'Khánh Vĩnh': ['Khánh Sơn', 'Khánh Hòa', 'Khánh Nhạc', 'Khánh An', 'Khánh Phú'],
+        'Nha Phu': ['Nha Phu', 'Phú Long', 'Phú Hải'],
+        'Diên Khánh': ['Diên Phương', 'Diên Thắng', 'Diên Hải', 'Diên Lâm'],
+        'Thường Hải': ['Thường An', 'Thường Phú', 'Thường Sơn']
+    },
+    'Ninh Thuận': {
+        'Phan Rang - Tháp Chàm': ['Hòa Xương', 'Hòa Hợp', 'Hòa Long', 'Hòa Tân', 'Hòa Mỹ'],
+        'Tuy Phong': ['Phong Nhai', 'Phong Tiến', 'Phong Đông', 'Phong Mỹ', 'Phong Phú'],
+        'Ninh Hải': ['Sơn Hải', 'Sơn Lâm', 'Sơn Phụng', 'Sơn Tây', 'Sơn Lộc'],
+        'Ninh Sơn': ['Ninh Mỹ', 'Ninh An', 'Ninh Lộc', 'Ninh Phương'],
+        'Thuận Bắc': ['Thuận Tây', 'Thuận Bắc', 'Thuận Nam'],
+        'Thuận Nam': ['Thuận Phong', 'Thuận Lâm', 'Thuận Phú']
+    },
+    'Bình Thuận': {
+        'Phan Thiết': ['Phú Hài', 'Phú Thọ', 'Xuân Dương', 'Xuân Hòa', 'Xuân An'],
+        'La Gi': ['Lạc Dương', 'Lạc Sơn', 'Lạc Thủy', 'Lạc Hòa', 'Lạc Phương'],
+        'Tuy Phong': ['Phong Nhai', 'Phong Tiến', 'Phong Dương', 'Phong Sơn', 'Phong Mỹ'],
+        'Hàm Tân': ['Hàm Minh', 'Hàm Liên', 'Hàm Kiệm', 'Hàm Sơn'],
+        'Đức Linh': ['Đức An', 'Đức Thắng', 'Đức Phú'],
+        'Tánh Linh': ['Tánh Lương', 'Tánh Phú', 'Tánh Long']
+    },
+    'Long An': {
+        'Tân An': ['Phú Hòa', 'Phú Mỹ', 'Tân Tạo', 'Tân Thạnh', 'Tân Sơn'],
+        'Mỹ Tho': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7'],
+        'Cần Đước': ['Cần Kiệm', 'Cần Thạnh', 'Cần Hạ', 'Cần Nước Mặn', 'Cần An'],
+        'Tân Hưng': ['Tân Hòa', 'Tân Thắng', 'Tân Phú', 'Tân Lộc'],
+        'Vĩnh Hưng': ['Vĩnh Thiện', 'Vĩnh Thạnh', 'Vĩnh Mỹ', 'Vĩnh Hòa'],
+        'Mộc Hóa': ['Mộc Tín', 'Mộc Hóa', 'Mộc Thái']
+    },
+    'Tiền Giang': {
+        'Mỹ Tho': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7'],
+        'Gò Công': ['Hòa Mỹ', 'Hòa Phú', 'Hòa Tân', 'Hòa An', 'Hòa Sơn'],
+        'Cái Bè': ['Nhơn Thạnh', 'Tân Mỹ', 'Tân Phong', 'Tân Thành'],
+        'Cai Lậy': ['Cai Hồng', 'Cai Sơn', 'Cai Tây'],
+        'Chợ Gạo': ['Chợ Gạo', 'Lý Nhân', 'Hoa Lư'],
+        'Tân Phú': ['Tân Phú Đông', 'Tân Phú Tây', 'Tân Phú Nam']
+    },
+    'Bến Tre': {
+        'Bến Tre': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7'],
+        'Châu Thành': ['Thạnh Hóa', 'Thạnh Phú', 'Thạnh Tâm', 'Thạnh Sơn', 'Thạnh An'],
+        'Ba Tri': ['Bình Đại', 'Bình Phú', 'Bình Tâm', 'Bình Thạnh'],
+        'Chợ Lách': ['Bình Thắng', 'Bình Thạnh', 'Bình Phúc'],
+        'Mỏ Cày Nam': ['Mỏ Cày Bắc', 'Mỏ Cày Nam', 'Mỏ Cày Tây'],
+        'Thạnh Phú': ['Thạnh Hữu', 'Thạnh Mỹ', 'Thạnh Dương']
+    },
+    'Trà Vinh': {
+        'Trà Vinh': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8'],
+        'Duyên Hải': ['Tân Phú Đông', 'Tân Phú Tây', 'Duyên Hải Bắc', 'Duyên Hải Nam'],
+        'Càng Long': ['Thị trấn Càng Long', 'Cái Dương', 'Gia Phú', 'Mỹ Tân', 'Mỹ Hiệp'],
+        'Châu Thành': ['Thị trấn Châu Thành', 'Tân Hương', 'Trầu Quả', 'Tân Quới', 'Tân Thắng'],
+        'Cầu Kè': ['Thị trấn Cầu Kè', 'Long Hồ', 'Long Sơn', 'Long Mỹ', 'Long Thạnh'],
+        'Tiểu Cần': ['Thị trấn Tiểu Cần', 'Lợi Bình Nhân', 'Nhân Mỹ', 'Phú Hữu'],
+        'Cầu Ngang': ['Thị trấn Cầu Ngang', 'Hòa Bình', 'Hòa Long', 'Hòa Sơn', 'Hòa An'],
+        'Trà Cú': ['Thị trấn Trà Cú', 'Thái Hòa', 'Lộc Phú', 'Khánh Phú', 'Thôn Thạnh']
+    },
+    'Vĩnh Long': {
+        'Vĩnh Long': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7', 'Phường 8'],
+        'Mang Thít': ['Tân Hòa', 'Tân Hạ', 'Tân Xuyên', 'Tân Phương', 'Tân Sơn'],
+        'Bình Minh': ['Bình Tân', 'Bình Phú', 'Bình Long', 'Bình An', 'Bình Sơn'],
+        'Long Hồ': ['Long Sơn', 'Long Hòa', 'Long Trì', 'Long Lâm'],
+        'Tam Bình': ['Tân Lộc', 'Tân Hòa', 'Tân Sơn'],
+        'Trà On': ['Trà Sơn', 'Trà Lâm', 'Trà Ôn']
+    },
+    'Đồng Tháp': {
+        'Cao Lãnh': ['Tân Thạnh', 'Tân Quy', 'Tân Châu', 'Tân Sơn', 'Tân An'],
+        'Sa Đéc': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6', 'Phường 7'],
+        'Thanh Bình': ['Tân Hòa', 'Tân Thạnh', 'Tân Sơn', 'Tân Lộc'],
+        'Hồng Ngu': ['Tân Quy', 'Tân Hợp', 'Tân Tạo'],
+        'Châu Thành': ['Châu Sơn', 'Châu Hòa', 'Châu An'],
+        'Tân Hưng': ['Tân Hòa', 'Tân Thạnh', 'Tân Phúc']
+    },
+    'An Giang': {
+        'Long Xuyên': ['Mỹ Bình', 'Mỹ Xuyên', 'Mỹ Phú', 'Mỹ Hòa', 'Mỹ An'],
+        'Châu Đốc': ['Châu Văn Liêm', 'Phú Khánh', 'Phú Mỹ', 'Phú Hòa', 'Phú Sơn'],
+        'Tân Châu': ['An Bình', 'An Châu', 'An Phú', 'An Mỹ', 'An Hòa'],
+        'Phú Tân': ['Phú Lạc', 'Phú Hòa', 'Phú Sơn'],
+        'Chợ Mới': ['An Thoại', 'An Mỹ', 'An Phú'],
+        'Tịnh Biên': ['Tịnh Sơn', 'Tịnh Hòa', 'Tịnh Dân']
+    },
+    'Kiên Giang': {
+        'Rạch Giá': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6'],
+        'Hà Tiên': ['Mũi Né', 'Tân Hiệp', 'Tân Thành', 'Tân Phú', 'Tân Sơn'],
+        'Phú Quốc': ['An Thới', 'Hòa An', 'Cửa Cạn', 'Hòa Hải', 'Dương Tơ'],
+        'Gò Quao': ['Gò Quao', 'Gò Hộp'],
+        'An Minh': ['An Sơn', 'An Hòa', 'An Phú'],
+        'Vĩnh Thuận': ['Vĩnh Hòa', 'Vĩnh Sơn', 'Vĩnh Lộc']
     },
     'Cần Thơ': {
-        'Ninh Kiều': ['An Khánh', 'An Nghiệp', 'Cái Khế'],
-        'Bình Thủy': ['An Thới', 'Bình Thủy', 'Trà An']
+        'Ninh Kiều': ['An Khánh', 'An Nghiệp', 'Cái Khế', 'An Hoà', 'An Bình'],
+        'Bình Thủy': ['An Thới', 'Bình Thủy', 'Trà An', 'Bình Minh', 'Bình Phú'],
+        'Cờ Đỏ': ['Tân Phú', 'Tân Thạnh', 'Tân Phong', 'Tân Lộc', 'Tân Hoàng'],
+        'Thốt Nốt': ['Tân Kỳ', 'Tân Lợi', 'Tân Phương', 'Tân Hòa', 'Tân Sơn']
+    },
+    'Hậu Giang': {
+        'Vị Thanh': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6'],
+        'Ngã Năm': ['Tân Hòa', 'Tân Thạnh', 'Tân Long', 'Tân Phương', 'Tân Sơn'],
+        'Châu Thành': ['Bình Hòa', 'Bình Phú', 'Bình Tâm', 'Bình An', 'Bình Sơn'],
+        'Phụng Hiệp': ['Phụng Hiệp A', 'Phụng Hiệp B'],
+        'Vị Thủy': ['Vị Sơn', 'Vị Hòa', 'Vị Trung']
+    },
+    'Sóc Trăng': {
+        'Sóc Trăng': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5', 'Phường 6'],
+        'Bạc Liêu': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5'],
+        'Long Phú': ['Tân Hòa', 'Tân Thạnh', 'Tân Long'],
+        'Mỹ Tú': ['Mỹ Sơn', 'Mỹ Hòa', 'Mỹ Lâm'],
+        'Kế Sách': ['Kế Sơn', 'Kế Hòa', 'Kế An'],
+        'Trần Đề': ['Trần Sơn', 'Trần Hòa', 'Trần Lâm']
+    },
+    'Bạc Liêu': {
+        'Bạc Liêu': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5'],
+        'Hồng Dân': ['Tân Hòa', 'Tân Thạnh', 'Tân Phong', 'Tân Lộc', 'Tân Sơn'],
+        'Phước Long': ['Tân Hòa', 'Tân Thạnh', 'Tân Lợi', 'Tân Sơn', 'Tân Phương'],
+        'Giá Rai': ['Giá Sơn', 'Giá Hòa', 'Giá Lân'],
+        'Vĩnh Lợi': ['Vĩnh Hòa', 'Vĩnh Sơn', 'Vĩnh Phương'],
+        'Ba Úc': ['Ba Sơn', 'Ba Hòa', 'Ba Lâm']
+    },
+    'Cà Mau': {
+        'Cà Mau': ['Phường 1', 'Phường 2', 'Phường 3', 'Phường 4', 'Phường 5'],
+        'U Minh': ['Tân Hòa', 'Tân Thạnh', 'Tân Hiệp', 'Tân Sơn', 'Tân Phương'],
+        'Năm Căn': ['Tân Hòa', 'Tân Thạnh', 'Tân Phước', 'Tân Sơn', 'Tân An'],
+        'Đầm Dơi': ['Đầm Sơn', 'Đầm Hòa', 'Đầm Lâm'],
+        'Gành Hào': ['Gành Sơn', 'Gành Hòa', 'Gành Phương'],
+        'Thới Bình': ['Thới Sơn', 'Thới Hòa', 'Thới Lâm']
     }
 };
 
@@ -474,45 +666,152 @@ function fillSelect(select, values, placeholder) {
     select.innerHTML = `<option value="">${placeholder}</option>${values.map((value) => `<option value="${value}">${value}</option>`).join('')}`;
 }
 
-function showCheckoutModal(productName = 'sản phẩm') {
+function getOrderHistory(user = null) {
+    try {
+        const currentUser = user || getCurrentUser();
+        if (!currentUser) return [];
+        const allOrders = JSON.parse(localStorage.getItem(ORDER_HISTORY_KEY) || '[]');
+        if (['manager', 'staff'].includes(currentUser.role)) {
+            return allOrders;
+        }
+        return allOrders.filter(order => order.userEmail === currentUser.email);
+    } catch (error) {
+        console.error('Lỗi khi lấy lịch sử mua hàng:', error);
+        return [];
+    }
+}
+
+function saveOrderToHistory(orderData) {
+    try {
+        const user = getCurrentUser();
+        if (!user) return null;
+        const allOrders = JSON.parse(localStorage.getItem(ORDER_HISTORY_KEY) || '[]');
+        const newOrder = {
+            id: 'ORD' + Date.now().toString().slice(-6),
+            userEmail: user.email,
+            userName: user.name || user.email,
+            orderDate: new Date().toLocaleString('vi-VN'),
+            timestamp: Date.now(),
+            status: 'Đã đặt hàng',
+            ...orderData
+        };
+        allOrders.unshift(newOrder);
+        localStorage.setItem(ORDER_HISTORY_KEY, JSON.stringify(allOrders));
+        return newOrder;
+    } catch (error) {
+        console.error('Lỗi khi lưu đơn hàng:', error);
+        return null;
+    }
+}
+
+function showOrderHistory(container, user = null) {
+    const orders = getOrderHistory(user);
+    if (!orders || orders.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 10px;">
+                <div style="font-size: 48px; margin-bottom: 12px; color: #ccc;">📦</div>
+                <h4 style="margin-bottom: 8px; color: #333;">Chưa có lịch sử đơn hàng</h4>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Hãy chọn các sản phẩm yêu thích và tiến hành đặt hàng!</p>
+                <a href="products.html" style="display: inline-block; padding: 10px 24px; background: #000; color: #d4af37; text-decoration: none; border-radius: 50px; font-weight: 700; font-size: 14px;">Khám phá sản phẩm</a>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <h4 style="margin-top: 0; margin-bottom: 16px; border-bottom: 2px solid #d4af37; padding-bottom: 8px; font-size: 16px;">📦 Lịch sử mua hàng (${orders.length} đơn)</h4>
+        <div style="display: flex; flex-direction: column; gap: 14px; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+            ${orders.map(order => {
+                const addr = order.shippingAddress || {};
+                const fullAddr = [addr.detail, addr.ward, addr.district, addr.city].filter(Boolean).join(', ');
+                const priceText = order.totalPrice && order.totalPrice > 0
+                    ? order.totalPrice.toLocaleString('vi-VN') + ' VNĐ'
+                    : 'Liên hệ';
+                const paymentLabel = addr.payment === 'COD'
+                    ? '💵 COD (Thanh toán khi nhận)'
+                    : '🏦 Chuyển khoản ngân hàng';
+
+                return `
+                    <div style="background: #fdfdfd; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 10px;">
+                            <div>
+                                <strong style="color: #000; font-size: 15px;">Mã đơn: #${order.id}</strong>
+                                <span style="display: block; font-size: 12px; color: #888; margin-top: 2px;">📅 ${order.orderDate}</span>
+                            </div>
+                            <span style="background: #e8f5e9; color: #2c7a2c; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                                ${order.status || 'Đã đặt hàng'}
+                            </span>
+                        </div>
+                        <div style="font-size: 14px; line-height: 1.6; color: #333;">
+                            <p style="margin: 4px 0;"><strong>Sản phẩm:</strong> ${order.productName || 'Sản phẩm'}</p>
+                            <p style="margin: 4px 0;"><strong>Tổng tiền:</strong> <span style="color: #d4af37; font-weight: bold;">${priceText}</span></p>
+                            <p style="margin: 4px 0;"><strong>Người nhận:</strong> ${addr.recipient || order.userName || 'N/A'} (${addr.phone || 'N/A'})</p>
+                            <p style="margin: 4px 0;"><strong>Địa chỉ:</strong> ${fullAddr || 'N/A'}</p>
+                            <p style="margin: 4px 0;"><strong>Thanh toán:</strong> ${paymentLabel}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function showCheckoutModal(productName = 'sản phẩm', productPrice = 0) {
     if (!requireLogin('mua ngay')) return;
     document.getElementById('checkout-modal')?.remove();
     const savedAddress = JSON.parse(localStorage.getItem(SHIPPING_ADDRESS_KEY) || 'null') || {};
     const modal = document.createElement('div');
     modal.id = 'checkout-modal';
     modal.className = 'auth-modal active';
-    modal.innerHTML = `<div class="auth-modal-box checkout-box">
+    modal.innerHTML = `<div class="auth-modal-box checkout-box" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
         <button class="auth-close-btn" type="button" aria-label="Đóng">×</button>
-        <h3>Địa chỉ giao hàng</h3>
-        <p>Sản phẩm: <strong>${productName}</strong></p>
-        <form id="shipping-address-form">
-            <div class="address-grid">
-                <label>Họ tên người nhận<input name="recipient" required value="${savedAddress.recipient || ''}" placeholder="Nhập họ tên"></label>
-                <label>Số điện thoại<input name="phone" required pattern="[0-9]{9,11}" value="${savedAddress.phone || ''}" placeholder="Ví dụ: 0901234567"></label>
-                <label>Tỉnh/Thành phố<select name="city" id="shipping-city" required></select></label>
-                <label>Quận/Huyện<select name="district" id="shipping-district" required disabled></select></label>
-                <label class="full-width">Phường/Xã<select name="ward" id="shipping-ward" required disabled></select></label>
-                <label class="full-width">Địa chỉ cụ thể<input name="detail" required value="${savedAddress.detail || ''}" placeholder="Số nhà, tên đường"></label>
-            </div>
-            <button class="checkout-submit" type="submit">Xác nhận đặt hàng</button>
-            <div class="role-panel-message" id="shipping-message"></div>
-        </form>
+        <h3 id="modal-title">Đặt hàng</h3>
+        <div id="modal-content">
+            <form id="shipping-address-form">
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0;">Thông tin sản phẩm</h4>
+                    <p style="margin: 5px 0;"><strong>Sản phẩm:</strong> ${productName}</p>
+                    <p style="margin: 5px 0;"><strong>Giá:</strong> ${productPrice > 0 ? productPrice.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ'}</p>
+                </div>
+                <h4>Thông tin giao hàng</h4>
+                <div class="address-grid">
+                    <label>Họ tên người nhận<input name="recipient" required value="${savedAddress.recipient || ''}" placeholder="Nhập họ tên"></label>
+                    <label>Số điện thoại<input name="phone" required pattern="[0-9]{9,11}" value="${savedAddress.phone || ''}" placeholder="Ví dụ: 0901234567"></label>
+                    <label>Tỉnh/Thành phố<select name="city" id="shipping-city" required></select></label>
+                    <label>Quận/Huyện<select name="district" id="shipping-district" required disabled></select></label>
+                    <label class="full-width">Phường/Xã<input name="ward" id="shipping-ward" type="text" required placeholder="Nhập phường/xã" disabled></label>
+                    <label class="full-width">Địa chỉ cụ thể<input name="detail" required value="${savedAddress.detail || ''}" placeholder="Số nhà, tên đường"></label>
+                </div>
+                <h4 style="margin-top: 20px;">Phương thức thanh toán</h4>
+                <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="payment" value="COD" required checked>
+                        <span>💵 Thanh toán khi nhận hàng (COD)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="payment" value="Transfer" required>
+                        <span>🏦 Chuyển khoản ngân hàng</span>
+                    </label>
+                </div>
+                <button class="checkout-submit" type="submit">Xác nhận đặt hàng</button>
+            </form>
+        </div>
     </div>`;
     document.body.appendChild(modal);
     const form = modal.querySelector('#shipping-address-form');
     const city = modal.querySelector('#shipping-city');
     const district = modal.querySelector('#shipping-district');
     const ward = modal.querySelector('#shipping-ward');
-    const message = modal.querySelector('#shipping-message');
+    const modalContent = modal.querySelector('#modal-content');
+    const modalTitle = modal.querySelector('#modal-title');
     fillSelect(city, Object.keys(addressData), 'Chọn Tỉnh/Thành phố');
     const updateDistricts = () => {
         fillSelect(district, Object.keys(addressData[city.value] || {}), 'Chọn Quận/Huyện');
         district.disabled = !city.value;
-        fillSelect(ward, [], 'Chọn Phường/Xã');
+        ward.value = '';
         ward.disabled = true;
     };
     const updateWards = () => {
-        fillSelect(ward, addressData[city.value]?.[district.value] || [], 'Chọn Phường/Xã');
         ward.disabled = !district.value;
     };
     city.addEventListener('change', updateDistricts);
@@ -523,10 +822,98 @@ function showCheckoutModal(productName = 'sản phẩm') {
     modal.querySelector('.auth-close-btn').addEventListener('click', () => modal.remove());
     form.addEventListener('submit', (event) => {
         event.preventDefault();
-        const shippingAddress = Object.fromEntries(new FormData(form).entries());
+        const formData = new FormData(form);
+        const shippingAddress = Object.fromEntries(formData.entries());
         localStorage.setItem(SHIPPING_ADDRESS_KEY, JSON.stringify(shippingAddress));
-        message.textContent = `Đã xác nhận giao ${productName} tới ${shippingAddress.detail}, ${shippingAddress.ward}, ${shippingAddress.district}, ${shippingAddress.city}.`;
-        message.style.color = '#2c7a2c';
+
+        let displayProductName = productName;
+        let itemsList = [];
+        if (productName === 'Giỏ hàng') {
+            const cartItems = getCartItems();
+            if (cartItems.length > 0) {
+                displayProductName = cartItems.map(i => `${i.name} (x${i.quantity || 1})`).join(', ');
+                itemsList = cartItems;
+            } else {
+                displayProductName = 'Giỏ hàng';
+            }
+        } else {
+            itemsList = [{ name: productName, price: productPrice, quantity: 1 }];
+        }
+
+        // Lưu đơn hàng vào lịch sử
+        saveOrderToHistory({
+            productName: displayProductName,
+            items: itemsList,
+            totalPrice: productPrice,
+            shippingAddress: shippingAddress
+        });
+
+        // Nếu đặt hàng từ giỏ hàng, xóa sạch giỏ hàng
+        if (productName === 'Giỏ hàng') {
+            saveCartItems([]);
+            updateHeaderCounts();
+        }
+
+        // Tạo bảng thông tin đơn hàng
+        const orderDate = new Date().toLocaleString('vi-VN');
+        const orderHTML = `
+            <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 2px solid #2c7a2c;">
+                <h4 style="color: #2c7a2c; margin-top: 0; text-align: center;">✅ ĐẶT HÀNG THÀNH CÔNG</h4>
+                <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                    <tr style="background: #e8f5e9; border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px; font-weight: bold;">Thông tin</td>
+                        <td style="padding: 10px; text-align: right;">Chi tiết</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">Sản phẩm:</td>
+                        <td style="padding: 10px; text-align: right;"><strong>${displayProductName}</strong></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">Giá tiền:</td>
+                        <td style="padding: 10px; text-align: right;"><strong>${productPrice > 0 ? productPrice.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ'}</strong></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">Người nhận:</td>
+                        <td style="padding: 10px; text-align: right;"><strong>${shippingAddress.recipient}</strong></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">Số điện thoại:</td>
+                        <td style="padding: 10px; text-align: right;"><strong>${shippingAddress.phone}</strong></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">Địa chỉ giao hàng:</td>
+                        <td style="padding: 10px; text-align: right;"><strong>${shippingAddress.detail}, ${shippingAddress.ward}, ${shippingAddress.district}, ${shippingAddress.city}</strong></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">Phương thức thanh toán:</td>
+                        <td style="padding: 10px; text-align: right;">
+                            <strong style="background: ${shippingAddress.payment === 'COD' ? '#fff3cd' : '#d1ecf1'}; padding: 5px 10px; border-radius: 4px; display: inline-block;">
+                                ${shippingAddress.payment === 'COD' ? '💵 COD (Thanh toán khi nhận)' : '🏦 Chuyển khoản ngân hàng'}
+                            </strong>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px;">Thời gian đặt:</td>
+                        <td style="padding: 10px; text-align: right;"><strong>${orderDate}</strong></td>
+                    </tr>
+                </table>
+                <div style="background: #fff; padding: 15px; border-radius: 5px; margin-top: 15px; border-left: 4px solid #2c7a2c;">
+                    <p style="margin: 5px 0; color: #555;"><strong>📋 Ghi chú:</strong></p>
+                    <p style="margin: 5px 0; color: #666; font-size: 14px;">
+                        ${shippingAddress.payment === 'COD'
+                            ? '✔ Bạn sẽ thanh toán trực tiếp cho nhân viên giao hàng. Vui lòng chuẩn bị tiền mặt.'
+                            : '✔ Vui lòng chuyển khoản theo thông tin tài khoản được gửi qua email/SMS. Đơn hàng sẽ được xác nhận sau khi nhận được thanh toán.'}
+                    </p>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="checkout-submit" style="flex: 1; background: #555; color: #fff;" onclick="document.getElementById('checkout-modal')?.remove()">Đóng</button>
+                    <button class="checkout-submit" style="flex: 1;" onclick="document.getElementById('checkout-modal')?.remove(); showRolePanel(getCurrentUser());">📦 Lịch sử mua hàng</button>
+                </div>
+            </div>
+        `;
+
+        modalTitle.textContent = 'Xác nhận đơn hàng';
+        modalContent.innerHTML = orderHTML;
     });
 }
 
@@ -620,38 +1007,53 @@ async function showStaffManagement(content, user) {
 }
 
 function showRolePanel(user) {
-    if (!['manager', 'staff'].includes(user.role)) {
-        if (window.confirm(`Bạn đang đăng nhập với vai trò ${getRoleLabel(user.role)}. Bạn muốn đăng xuất?`)) logoutUser();
-        return;
-    }
     hideAuthModal();
     closeRolePanel();
     const modal = document.createElement('div');
     modal.id = 'role-panel-modal';
     modal.className = 'auth-modal active';
+
+    const isStaffOrManager = ['manager', 'staff'].includes(user.role);
     const managerControls = user.role === 'manager'
         ? '<button type="button" data-action="staff">Quản lý nhân viên</button>'
         : '';
-    modal.innerHTML = `<div class="auth-modal-box role-panel-box">
+    const productControls = isStaffOrManager
+        ? '<button type="button" data-action="product">Thêm sản phẩm</button>'
+        : '';
+
+    modal.innerHTML = `<div class="auth-modal-box role-panel-box" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
         <button class="auth-close-btn" type="button" aria-label="Đóng">×</button>
-        <h3>Bảng điều khiển ${getRoleLabel(user.role)}</h3>
-        <p>Chọn chức năng bạn được cấp quyền sử dụng.</p>
-        <div class="role-panel-actions"><button type="button" data-action="product">Thêm sản phẩm</button>${managerControls}<button type="button" class="secondary" data-action="logout">Đăng xuất</button></div>
+        <h3>Tài khoản: ${user.name || user.email}</h3>
+        <p style="margin-top: 4px; color: #666; font-size: 14px;">Vai trò: <strong>${getRoleLabel(user.role)}</strong> (${user.email})</p>
+        <div class="role-panel-actions" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; margin-bottom: 16px;">
+            <button type="button" data-action="orders" class="primary">📦 Lịch sử mua hàng</button>
+            ${productControls}
+            ${managerControls}
+            <button type="button" class="secondary" data-action="logout">Đăng xuất</button>
+        </div>
         <div id="role-panel-content"></div></div>`;
     document.body.appendChild(modal);
+
     const content = modal.querySelector('#role-panel-content');
     if (!content) {
         console.error('Role panel content container not found.');
         return;
     }
+
     modal.querySelector('.auth-close-btn')?.addEventListener('click', closeRolePanel);
+
+    // Mặc định hiển thị Lịch sử mua hàng khi mở bảng điều khiển
+    showOrderHistory(content, user);
+
     const actionContainer = modal.querySelector('.role-panel-actions');
     actionContainer?.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : event.target.parentElement;
         const button = target?.closest?.('button[data-action]');
         if (!button) return;
         const action = button.dataset.action;
-        if (action === 'product') {
+        if (action === 'orders') {
+            showOrderHistory(content, user);
+        } else if (action === 'product') {
             showProductManagement(content);
         } else if (action === 'staff') {
             showStaffManagement(content, user);
@@ -830,8 +1232,8 @@ function requireLogin(actionName = 'thực hiện thao tác này') {
     return false;
 }
 
-function handleProtectedBuyNow(productName = 'sản phẩm') {
-    showCheckoutModal(productName);
+function handleProtectedBuyNow(productName = 'sản phẩm', productPrice = 0) {
+    showCheckoutModal(productName, productPrice);
 }
 
 function handleProtectedAddToCart(productId, productName = 'sản phẩm') {
@@ -869,7 +1271,11 @@ window.CHRONOS_AUTH = {
     getCartCount,
     getWishlistCount,
     isInWishlist,
-    updateHeaderCounts
+    updateHeaderCounts,
+    getOrderHistory,
+    saveOrderToHistory,
+    showOrderHistory,
+    showRolePanel
 };
 
 if (document.readyState === 'loading') {

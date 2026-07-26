@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let sku = "CR-" + product._id.slice(-6).toUpperCase();
         let specs = product.description || "Đang cập nhật thông số chi tiết";
-        
+
         // Lấy thương hiệu và size (nếu sản phẩm thiếu sẽ tự động tách từ tên hoặc dùng giá trị mặc định)
        // Lấy thương hiệu chuẩn xác
         let brand = product.brand;
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <i class="fas fa-star"></i>
                     <i class="fas fa-star"></i> 5 đánh giá
                 </div>
-                
+
                 <div class="spec-item"><strong>Mã SP:</strong> ${sku}</div>
                 <div class="spec-item"><strong>Thương hiệu:</strong> ${brand}</div>
                 <div class="spec-item"><strong>Size:</strong> ${size}</div>
@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
 
                 <div class="action-buttons">
-                    <button class="btn-buy-now" data-action="buy-now" data-product-name=${JSON.stringify(product.name)}>Mua Ngay</button>
+                    <button class="btn-buy-now" data-action="buy-now" data-product-name=${JSON.stringify(product.name)} data-product-price="${product.price || 0}">Mua Ngay</button>
                     <button class="btn-add-cart-detail" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>Thêm Vào Giỏ</button>
                     <button class="btn-wishlist-detail ${isInWishlist ? 'active' : ''}" data-action="toggle-wishlist" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>
                         ${isInWishlist ? 'Bỏ yêu thích' : 'Thêm yêu thích'}
@@ -134,9 +134,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const action = button.dataset.action;
                 const productId = button.dataset.productId;
                 const productName = button.dataset.productName || 'sản phẩm';
+                const productPrice = parseFloat(button.dataset.productPrice) || 0;
 
                 if (action === 'buy-now') {
-                    window.CHRONOS_AUTH?.handleProtectedBuyNow(productName);
+                    window.CHRONOS_AUTH?.handleProtectedBuyNow(productName, productPrice);
                 } else if (action === 'add-cart') {
                     window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName);
                 } else if (action === 'toggle-wishlist') {

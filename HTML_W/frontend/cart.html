@@ -95,11 +95,18 @@
                 return;
             }
 
-            cartContainer.innerHTML = cartItems.map(item => {
+            const totalPrice = cartItems.reduce((sum, item) => {
+                const product = productMap[item.id] || {};
+                const p = product.price || item.price || 0;
+                return sum + (p * (item.quantity || 1));
+            }, 0);
+
+            const cardsHTML = cartItems.map(item => {
                 const product = productMap[item.id] || {};
                 const imageUrl = product.imageUrl || item.imageUrl || 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?q=80&w=500';
-                const price = product.price || item.price;
+                const price = product.price || item.price || 0;
                 const quantity = item.quantity || 1;
+                const itemTotal = price * quantity;
                 return `
                     <div class="cart-card">
                         <img src="${imageUrl}" alt="${item.name}">
@@ -109,12 +116,24 @@
                             <p>Số lượng: ${quantity}</p>
                         </div>
                         <div class="cart-actions">
-                            <button class="btn-checkout" onclick="window.CHRONOS_AUTH?.showCheckoutModal('Giỏ hàng')">Thanh toán</button>
+                            <button class="btn-checkout" onclick="window.CHRONOS_AUTH?.showCheckoutModal(${JSON.stringify(item.name)}, ${itemTotal})">Thanh toán món này</button>
                             <button class="btn-remove" onclick="(function(){ const updated = getCartItems().filter(it => it.id !== '${item.id}'); saveCartItems(updated); window.location.reload(); })()">Xóa</button>
                         </div>
                     </div>
                 `;
             }).join('');
+
+            const summaryHTML = `
+                <div style="background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+                    <div>
+                        <h3 style="margin: 0 0 5px 0;">Tổng cộng giỏ hàng (${cartItems.length} món)</h3>
+                        <p style="margin: 0; color: #555; font-size: 16px;">Tổng tiền: <strong style="color: #d4af37; font-size: 20px;">${totalPrice > 0 ? totalPrice.toLocaleString('vi-VN') + ' đ' : 'Liên hệ'}</strong></p>
+                    </div>
+                    <button class="btn-checkout" style="padding: 12px 28px; font-size: 16px; width: auto;" onclick="window.CHRONOS_AUTH?.showCheckoutModal('Giỏ hàng', ${totalPrice})">Thanh toán tất cả</button>
+                </div>
+            `;
+
+            cartContainer.innerHTML = cardsHTML + summaryHTML;
         });
     </script>
 </body>
