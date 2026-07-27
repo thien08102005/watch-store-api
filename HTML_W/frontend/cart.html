@@ -116,7 +116,7 @@
                             <p>Số lượng: ${quantity}</p>
                         </div>
                         <div class="cart-actions">
-                            <button class="btn-checkout" onclick="window.CHRONOS_AUTH?.showCheckoutModal(${JSON.stringify(item.name)}, ${itemTotal})">Thanh toán món này</button>
+                            <button class="btn-checkout" onclick="window.CHRONOS_AUTH?.showCheckoutModal(${JSON.stringify(item.name)}, ${itemTotal}, '${item.id}', ${quantity})">Thanh toán món này</button>
                             <button class="btn-remove" onclick="(function(){ const updated = getCartItems().filter(it => it.id !== '${item.id}'); saveCartItems(updated); window.location.reload(); })()">Xóa</button>
                         </div>
                     </div>

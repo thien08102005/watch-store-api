@@ -10,8 +10,18 @@ const demoUsers = [
     { name: 'Khách hàng', email: 'khachhang@chronos.local', role: 'customer' }
 ];
 
+const DEFAULT_PRODUCT_AUTHOR_EMAIL = 'admin@chronos.local';
+
+const prepareProducts = (products, createdBy) => products.map(product => ({
+    stock: product.stock ?? 20,
+    sold: product.sold ?? 0,
+    createdBy,
+    ...product
+}));
+
 const seedDemoUsers = async () => {
-    const password = await bcrypt.hash('123', 10);
+    const seedPassword = process.env.SEED_PASSWORD || '123';
+    const password = await bcrypt.hash(seedPassword, 10);
     for (const demoUser of demoUsers) {
         await User.updateOne(
             { email: demoUser.email },
@@ -19,7 +29,12 @@ const seedDemoUsers = async () => {
             { upsert: true }
         );
     }
+
+    const admin = await User.findOne({ email: DEFAULT_PRODUCT_AUTHOR_EMAIL });
+    if (!admin) throw new Error(`Không tìm thấy user seed với email ${DEFAULT_PRODUCT_AUTHOR_EMAIL}`);
+
     console.log('Đã kiểm tra/tạo 3 tài khoản mẫu phân quyền.');
+    return admin._id;
 };
 
 // Danh sách sản phẩm thực tế (5 Nam, 5 Nữ)
@@ -325,9 +340,9 @@ const seedDB = async () => {
         await Product.deleteMany({});
         console.log('Đã xóa dữ liệu cũ...');
 
-        await Product.insertMany(sampleProducts);
-        await seedDemoUsers();
-        console.log('Đã thêm thành công 10 sản phẩm (5 nam, 5 nữ) vào Database!');
+        const createdBy = await seedDemoUsers();
+        await Product.insertMany(prepareProducts(sampleProducts, createdBy));
+        console.log(`Đã thêm thành công ${sampleProducts.length} sản phẩm vào Database!`);
     } catch (err) {
         console.error('Lỗi khi seed dữ liệu:', err);
         throw err;
@@ -344,7 +359,7 @@ const seedIfEmpty = async () => {
         const count = await Product.countDocuments();
         if (count === 0) {
             console.log('Dữ liệu rỗng, tiến hành seed dữ liệu mẫu...');
-            await Product.insertMany(sampleProducts);
+            await Product.insertMany(prepareProducts(sampleProducts));
             console.log('Đã seed dữ liệu mẫu thành công.');
         } else {
             console.log(`Đã có ${count} sản phẩm, không cần seed thêm.`);

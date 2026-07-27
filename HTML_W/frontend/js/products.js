@@ -51,6 +51,16 @@ function setupSearch() {
     });
 }
 
+function sortProductList(products, sortOrder) {
+    if (sortOrder === 'asc') {
+        return [...products].sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+    }
+    if (sortOrder === 'desc') {
+        return [...products].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+    }
+    return products;
+}
+
 async function loadCategoryPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const category = urlParams.get('category');
@@ -109,6 +119,18 @@ async function loadCategoryPage() {
             });
         }
 
+        const sortSelect = document.getElementById('sort-select');
+        const initialSort = sortSelect?.value || 'default';
+        products = sortProductList(products, initialSort);
+
+        if (sortSelect) {
+            sortSelect.addEventListener('change', (event) => {
+                const value = event.target.value;
+                const sortedProducts = sortProductList(products, value);
+                renderProductsGrid(sortedProducts);
+            });
+        }
+
         renderProductsGrid(products);
     } catch (error) {
         console.error('Lỗi khi lấy sản phẩm:', error);
@@ -144,6 +166,11 @@ function renderProductsGrid(products) {
                 <div class="product-sku">${sku}</div>
                 <div class="product-specs">${specs}</div>
                 <div class="product-price">${(product.price || 0).toLocaleString('vi-VN')}đ</div>
+                <div class="product-meta">
+                    <span class="product-stock">${product.stock != null ? `Còn ${product.stock} chiếc` : 'Tồn kho cập nhật'}</span>
+                    <span class="product-sold">Đã bán ${product.sold ?? 0}</span>
+                </div>
+                ${product.sold >= 5 ? '<span class="badge-bestseller">Bán chạy</span>' : ''}
 
                 <div class="product-actions">
                     <button class="btn-add-cart" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>

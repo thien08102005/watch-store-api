@@ -756,7 +756,56 @@ function showOrderHistory(container, user = null) {
     `;
 }
 
-function showCheckoutModal(productName = 'sản phẩm', productPrice = 0) {
+function showSalesRevenue(container, user = null) {
+    const orders = getOrderHistory(user);
+    const revenue = orders.reduce((sum, order) => {
+        if (Number.isFinite(Number(order.totalPrice))) {
+            return sum + Number(order.totalPrice);
+        }
+        if (Array.isArray(order.items)) {
+            return sum + order.items.reduce((subSum, item) => subSum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+        }
+        return sum;
+    }, 0);
+    const totalProducts = orders.reduce((sum, order) => {
+        if (Array.isArray(order.items)) {
+            return sum + order.items.reduce((count, item) => count + (Number(item.quantity) || 1), 0);
+        }
+        return sum + 1;
+    }, 0);
+    if (!orders || orders.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 10px;">
+                <div style="font-size: 48px; margin-bottom: 12px; color: #ccc;">📈</div>
+                <h4 style="margin-bottom: 8px; color: #333;">Chưa có đơn hàng để tính doanh thu</h4>
+                <p style="color: #666; font-size: 14px;">Tất cả doanh thu sẽ hiển thị ở đây khi có đơn hàng.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 14px; padding: 24px; box-shadow: 0 4px 18px rgba(0,0,0,0.06);">
+            <h4 style="margin-top: 0; margin-bottom: 18px; font-size: 18px;">📈 Báo cáo doanh thu</h4>
+            <div style="display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr));">
+                <div style="background: #f9f9f9; border-radius: 12px; padding: 18px;">
+                    <p style="margin: 0 0 8px; color: #666;">Tổng đơn hàng</p>
+                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #111;">${orders.length}</p>
+                </div>
+                <div style="background: #f9f9f9; border-radius: 12px; padding: 18px;">
+                    <p style="margin: 0 0 8px; color: #666;">Tổng sản phẩm bán</p>
+                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #111;">${totalProducts}</p>
+                </div>
+                <div style="grid-column: span 2; background: #f9f9f9; border-radius: 12px; padding: 18px;">
+                    <p style="margin: 0 0 8px; color: #666;">Doanh thu đã bán</p>
+                    <p style="margin: 0; font-size: 32px; font-weight: 700; color: #d4af37;">${revenue.toLocaleString('vi-VN')} VNĐ</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, productId = null, quantity = 1) {
     if (!requireLogin('mua ngay')) return;
     document.getElementById('checkout-modal')?.remove();
     const savedAddress = JSON.parse(localStorage.getItem(SHIPPING_ADDRESS_KEY) || 'null') || {};
@@ -820,7 +869,7 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0) {
         city.value = savedAddress.city; updateDistricts(); district.value = savedAddress.district || ''; updateWards(); ward.value = savedAddress.ward || '';
     }
     modal.querySelector('.auth-close-btn').addEventListener('click', () => modal.remove());
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = new FormData(form);
         const shippingAddress = Object.fromEntries(formData.entries());
@@ -832,12 +881,37 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0) {
             const cartItems = getCartItems();
             if (cartItems.length > 0) {
                 displayProductName = cartItems.map(i => `${i.name} (x${i.quantity || 1})`).join(', ');
-                itemsList = cartItems;
+                itemsList = cartItems.map(i => ({ id: i.id, name: i.name, quantity: Number(i.quantity) || 1, price: Number(i.price) || 0 }));
             } else {
                 displayProductName = 'Giỏ hàng';
             }
         } else {
-            itemsList = [{ name: productName, price: productPrice, quantity: 1 }];
+            itemsList = [{ id: productId, name: productName, quantity: Number(quantity) || 1, price: Number(productPrice) || 0 }];
+        }
+
+        // Cập nhật tồn kho và sold trên backend
+        const user = getCurrentUser();
+        const token = user?.token;
+        if (!token) {
+            alert('Bạn cần đăng nhập để hoàn tất đơn hàng.');
+            return;
+        }
+
+        for (const item of itemsList) {
+            if (!item.id) continue;
+            const response = await fetch(`${API_BASE_URL}/products/${item.id}/sell`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ quantity: item.quantity })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                alert(result.message || `Không thể cập nhật số lượng cho sản phẩm ${item.name}.`);
+                return;
+            }
         }
 
         // Lưu đơn hàng vào lịch sử
@@ -942,6 +1016,7 @@ function showProductManagement(content) {
             <input name="name" placeholder="Tên sản phẩm" required>
             ${brandField}
             <input name="price" type="number" min="1" placeholder="Giá (VNĐ)" required>
+            <input name="stock" type="number" min="0" placeholder="Số lượng tồn kho" required>
             <select name="category" required><option value="Nam">Đồng hồ Nam</option><option value="Nữ">Đồng hồ Nữ</option></select>
             <input name="size" placeholder="Size (ví dụ 40 mm)">
             <input name="imageUrl" type="text" placeholder="URL hoặc đường dẫn ảnh (vd: Image/xxx.webp)" required>
@@ -1015,7 +1090,7 @@ function showRolePanel(user) {
 
     const isStaffOrManager = ['manager', 'staff'].includes(user.role);
     const managerControls = user.role === 'manager'
-        ? '<button type="button" data-action="staff">Quản lý nhân viên</button>'
+        ? '<button type="button" data-action="staff">Quản lý nhân viên</button><button type="button" data-action="revenue">Doanh thu đã bán</button>'
         : '';
     const productControls = isStaffOrManager
         ? '<button type="button" data-action="product">Thêm sản phẩm</button>'
@@ -1057,6 +1132,8 @@ function showRolePanel(user) {
             showProductManagement(content);
         } else if (action === 'staff') {
             showStaffManagement(content, user);
+        } else if (action === 'revenue') {
+            showSalesRevenue(content, user);
         } else if (action === 'logout') {
             logoutUser();
         }
@@ -1232,8 +1309,8 @@ function requireLogin(actionName = 'thực hiện thao tác này') {
     return false;
 }
 
-function handleProtectedBuyNow(productName = 'sản phẩm', productPrice = 0) {
-    showCheckoutModal(productName, productPrice);
+function handleProtectedBuyNow(productName = 'sản phẩm', productPrice = 0, productId = null, quantity = 1) {
+    showCheckoutModal(productName, productPrice, productId, quantity);
 }
 
 function handleProtectedAddToCart(productId, productName = 'sản phẩm') {
