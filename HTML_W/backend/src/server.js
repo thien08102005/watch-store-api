@@ -6,7 +6,7 @@ const connectDB = require('./config/db');
 const seedData = require('../seed');
 const productRoutes = require('./routes/product.routes');
 const authRoutes = require('./routes/auth.routes');
-
+const orderRoutes = require('./routes/order.routes');
 const app = express();
 
 // 1. Middlewares
@@ -20,6 +20,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 // 4. Khai báo Route
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/orders', orderRoutes);
 
 // 5. Chạy Server
 const PORT = process.env.PORT || 5000;

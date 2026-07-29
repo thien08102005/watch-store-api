@@ -154,6 +154,17 @@
             border-top: 1px solid #eee;
             border-bottom: 1px solid #eee;
             padding: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+        }
+        .current-price,
+        .old-price,
+        .sale-tag {
+            min-width: 0;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
         .current-price {
             font-size: 28px;
@@ -164,7 +175,7 @@
             font-size: 16px;
             color: #999;
             text-decoration: line-through;
-            margin-left: 15px;
+            margin-left: 0;
         }
         .sale-tag {
             background: #fff1f0;
@@ -174,7 +185,7 @@
             font-size: 12px;
             font-weight: bold;
             border-radius: 4px;
-            margin-left: 10px;
+            margin-left: 0;
         }
 
         /* Nút hành động */
@@ -222,6 +233,10 @@
 
         @media (max-width: 768px) {
             .detail-container { grid-template-columns: 1fr; }
+            .price-box { justify-content: flex-start; }
+            .current-price { font-size: 24px; }
+            .old-price { font-size: 14px; }
+            .sale-tag { font-size: 11px; }
         }
     </style>
 </head>
@@ -254,6 +269,7 @@
         <p style="text-align: center; grid-column: 1/-1; padding: 50px;">Đang tải thông tin sản phẩm...</p>
     </div>
 
+    <script src="js/google-config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/product-detail.js"></script>
 </body>

@@ -192,6 +192,111 @@ async function registerUser(name, email, password) {
     }
 }
 
+async function handleGoogleAuthResponse(response) {
+    try {
+        if (!response?.credential) {
+            return { ok: false, message: 'Không nhận được thông tin từ Google.' };
+        }
+
+        const serverResponse = await fetch(`${API_BASE_URL}/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential })
+        });
+
+        const data = await serverResponse.json();
+        if (!serverResponse.ok || !data.success) {
+            return { ok: false, message: data.message || 'Đăng nhập Google thất bại.' };
+        }
+
+        saveCurrentUser({ name: data.user.name, email: data.user.email, role: data.user.role, token: data.token });
+        return { ok: true, message: 'Đăng nhập Google thành công!' };
+    } catch (error) {
+        return { ok: false, message: 'Không thể kết nối tới server.' };
+    }
+}
+
+function loadGoogleSdk() {
+    if (window.google?.accounts?.id) {
+        return Promise.resolve();
+    }
+
+    if (document.getElementById('google-gsi-script')) {
+        return new Promise((resolve) => {
+            const check = () => {
+                if (window.google?.accounts?.id) {
+                    resolve();
+                } else {
+                    setTimeout(check, 100);
+                }
+            };
+            check();
+        });
+    }
+
+    return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.id = 'google-gsi-script';
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => resolve();
+        document.head.appendChild(script);
+    });
+}
+
+function initGoogleAuthUI() {
+    const container = document.getElementById('google-login-container');
+    const clientId = window.GOOGLE_CLIENT_ID || '';
+
+    if (!container) return;
+
+    const button = document.getElementById('google-login-button');
+    if (button) {
+        button.textContent = clientId ? 'Đang tải Google login...' : 'Google login chưa cấu hình';
+        button.disabled = !clientId;
+    }
+
+    if (!clientId) {
+        return;
+    }
+
+    loadGoogleSdk().then(() => {
+        if (!window.google?.accounts?.id) return;
+        if (container.dataset.initialized === 'true') return;
+
+        const button = document.getElementById('google-login-button');
+        if (button) {
+            button.style.display = 'none';
+        }
+
+        window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: async (response) => {
+                const result = await handleGoogleAuthResponse(response);
+                const messageEl = document.getElementById('auth-message');
+                if (messageEl) {
+                    messageEl.textContent = result.message;
+                    messageEl.style.color = result.ok ? '#2c7a2c' : '#c0392b';
+                }
+                if (result.ok) {
+                    updateAuthUI();
+                    setTimeout(hideAuthModal, 700);
+                }
+            }
+        });
+
+        container.dataset.initialized = 'true';
+        window.google.accounts.id.renderButton(container, {
+            theme: 'outline',
+            size: 'large',
+            text: 'signin_with',
+            shape: 'pill',
+            width: '100%'
+        });
+    });
+}
+
 function injectAuthStyles() {
     if (document.getElementById('auth-style')) return;
 
@@ -261,6 +366,42 @@ function injectAuthStyles() {
         }
         .auth-form button:hover {
             background: #b9951f;
+        }
+        .auth-social {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .auth-social-divider {
+            text-align: center;
+            color: #888;
+            font-size: 12px;
+            position: relative;
+        }
+        .auth-social-divider::before,
+        .auth-social-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 35%;
+            height: 1px;
+            background: #ddd;
+        }
+        .auth-social-divider::before { left: 0; }
+        .auth-social-divider::after { right: 0; }
+        .google-button {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #fff;
+            color: #444;
+            font-weight: 700;
+            cursor: not-allowed;
+        }
+        .google-button:disabled {
+            opacity: 0.7;
         }
         .auth-toggle {
             margin-top: 10px;
@@ -368,6 +509,11 @@ function createAuthModal() {
                 <input type="password" id="auth-confirm-password" placeholder="Nhập lại mật khẩu" required style="display:none;">
                 <button type="submit" id="auth-submit-btn">Đăng nhập</button>
             </form>
+            <div class="auth-social">
+                <div class="auth-social-divider">hoặc</div>
+                <div id="google-login-container"></div>
+                <button type="button" id="google-login-button" class="google-button">Đang tải Google login...</button>
+            </div>
             <div class="auth-toggle">
                 <button type="button" id="auth-toggle-btn">Chưa có tài khoản? Đăng ký</button>
             </div>
@@ -756,23 +902,82 @@ function showOrderHistory(container, user = null) {
     `;
 }
 
+function formatMonthLabel(month) {
+    const labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+    return labels[month - 1] || `Tháng ${month}`;
+}
+
+function getRevenueByYearMonth(orders) {
+    return orders.reduce((acc, order) => {
+        const timestamp = Number(order.timestamp) || Date.parse(order.orderDate || '');
+        const date = Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const amount = Number(order.totalPrice) || (Array.isArray(order.items)
+            ? order.items.reduce((subSum, item) => subSum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0)
+            : 0);
+        if (!acc[year]) acc[year] = Array(12).fill(0);
+        acc[year][month - 1] += amount;
+        return acc;
+    }, {});
+}
+
+function renderRevenueChart(canvas, monthlyRevenue, highlightedMonths = []) {
+    if (!(canvas instanceof HTMLCanvasElement)) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const width = canvas.width = 760;
+    const height = canvas.height = 320;
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    const padding = 48;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+    const maxValue = Math.max(1, ...monthlyRevenue);
+    const step = Math.ceil(maxValue / 5);
+    const barWidth = chartWidth / 12 * 0.7;
+    const barGap = chartWidth / 12 * 0.3;
+
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i += 1) {
+        const y = padding + (chartHeight / 5) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+        ctx.stroke();
+        ctx.fillStyle = '#888';
+        ctx.font = '12px Arial';
+        ctx.fillText(((5 - i) * step).toLocaleString('vi-VN'), 8, y + 4);
+    }
+
+    monthlyRevenue.forEach((value, index) => {
+        const x = padding + index * (barWidth + barGap) + barGap / 2;
+        const barHeight = maxValue ? (value / maxValue) * chartHeight : 0;
+        const y = padding + chartHeight - barHeight;
+        ctx.fillStyle = highlightedMonths.includes(index + 1) ? '#d4af37' : '#a3a3a3';
+        ctx.fillRect(x, y, barWidth, barHeight);
+        ctx.fillStyle = '#333';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(index + 1, x + barWidth / 2, height - 16);
+    });
+
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding + chartHeight);
+    ctx.lineTo(padding, padding / 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(padding, padding + chartHeight);
+    ctx.lineTo(width - padding + 10, padding + chartHeight);
+    ctx.stroke();
+}
+
 function showSalesRevenue(container, user = null) {
     const orders = getOrderHistory(user);
-    const revenue = orders.reduce((sum, order) => {
-        if (Number.isFinite(Number(order.totalPrice))) {
-            return sum + Number(order.totalPrice);
-        }
-        if (Array.isArray(order.items)) {
-            return sum + order.items.reduce((subSum, item) => subSum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
-        }
-        return sum;
-    }, 0);
-    const totalProducts = orders.reduce((sum, order) => {
-        if (Array.isArray(order.items)) {
-            return sum + order.items.reduce((count, item) => count + (Number(item.quantity) || 1), 0);
-        }
-        return sum + 1;
-    }, 0);
     if (!orders || orders.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 40px 10px;">
@@ -784,25 +989,104 @@ function showSalesRevenue(container, user = null) {
         return;
     }
 
+    const revenueByYear = getRevenueByYearMonth(orders);
+    const years = Object.keys(revenueByYear).map(Number).sort((a, b) => b - a);
+    const currentYear = years[0] || new Date().getFullYear();
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const availableYears = years.length ? years : [currentYear];
+    const selectedYear = currentYear;
+    const selectedMonthA = currentMonth;
+    const selectedMonthB = previousMonth;
+
     container.innerHTML = `
         <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 14px; padding: 24px; box-shadow: 0 4px 18px rgba(0,0,0,0.06);">
-            <h4 style="margin-top: 0; margin-bottom: 18px; font-size: 18px;">📈 Báo cáo doanh thu</h4>
-            <div style="display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr));">
-                <div style="background: #f9f9f9; border-radius: 12px; padding: 18px;">
-                    <p style="margin: 0 0 8px; color: #666;">Tổng đơn hàng</p>
-                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #111;">${orders.length}</p>
+            <h4 style="margin-top: 0; margin-bottom: 20px; font-size: 18px;">📈 Báo cáo doanh thu</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; align-items: flex-end;">
+                <div style="min-width: 180px;">
+                    <label style="display: block; margin-bottom: 6px; color: #555; font-size: 13px;">Năm</label>
+                    <select id="revenue-year-select" style="width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 10px; outline: none;">
+                        ${availableYears.map(year => `<option value="${year}" ${year === selectedYear ? 'selected' : ''}>${year}</option>`).join('')}
+                    </select>
                 </div>
-                <div style="background: #f9f9f9; border-radius: 12px; padding: 18px;">
-                    <p style="margin: 0 0 8px; color: #666;">Tổng sản phẩm bán</p>
-                    <p style="margin: 0; font-size: 28px; font-weight: 700; color: #111;">${totalProducts}</p>
+                <div style="min-width: 180px;">
+                    <label style="display: block; margin-bottom: 6px; color: #555; font-size: 13px;">So sánh tháng</label>
+                    <select id="revenue-compare-month-a" style="width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 10px; outline: none;">
+                        ${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === selectedMonthA ? 'selected' : ''}>${formatMonthLabel(i + 1)}</option>`).join('')}
+                    </select>
                 </div>
-                <div style="grid-column: span 2; background: #f9f9f9; border-radius: 12px; padding: 18px;">
-                    <p style="margin: 0 0 8px; color: #666;">Doanh thu đã bán</p>
-                    <p style="margin: 0; font-size: 32px; font-weight: 700; color: #d4af37;">${revenue.toLocaleString('vi-VN')} VNĐ</p>
+                <div style="min-width: 180px;">
+                    <label style="display: block; margin-bottom: 6px; color: #555; font-size: 13px;">với tháng</label>
+                    <select id="revenue-compare-month-b" style="width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 10px; outline: none;">
+                        ${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === selectedMonthB ? 'selected' : ''}>${formatMonthLabel(i + 1)}</option>`).join('')}
+                    </select>
                 </div>
+            </div>
+            <div style="display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 24px;">
+                <div style="background: #f9f9f9; border-radius: 12px; padding: 18px; min-height: 120px; display: flex; flex-direction: column; justify-content: center;">
+                    <p style="margin: 0 0 8px; color: #666;">Doanh thu năm ${selectedYear}</p>
+                    <p id="revenue-year-total" style="margin: 0; font-size: 24px; font-weight: 700; color: #111; white-space: normal; word-break: break-word; overflow-wrap: anywhere; line-height: 1.2;">0 VNĐ</p>
+                </div>
+                <div style="background: #f9f9f9; border-radius: 12px; padding: 18px; min-height: 120px; display: flex; flex-direction: column; justify-content: center;">
+                    <p style="margin: 0 0 8px; color: #666;">Doanh thu ${formatMonthLabel(selectedMonthA)}</p>
+                    <p id="revenue-month-a" style="margin: 0; font-size: 24px; font-weight: 700; color: #111; white-space: normal; word-break: break-word; overflow-wrap: anywhere; line-height: 1.2;">0 VNĐ</p>
+                </div>
+                <div style="background: #f9f9f9; border-radius: 12px; padding: 18px; min-height: 120px; display: flex; flex-direction: column; justify-content: center;">
+                    <p style="margin: 0 0 8px; color: #666;">Doanh thu ${formatMonthLabel(selectedMonthB)}</p>
+                    <p id="revenue-month-b" style="margin: 0; font-size: 24px; font-weight: 700; color: #111; white-space: normal; word-break: break-word; overflow-wrap: anywhere; line-height: 1.2;">0 VNĐ</p>
+                </div>
+            </div>
+            <div style="display: grid; gap: 24px; grid-template-columns: 1fr;">
+                <div style="background: #f9f9f9; border-radius: 14px; padding: 18px;">
+                    <canvas id="sales-revenue-chart" style="width: 100%; max-width: 100%; height: 320px;"></canvas>
+                </div>
+                <div id="revenue-comparison-summary" style="background: #fff9e6; border: 1px solid #f0dca8; border-radius: 14px; padding: 18px; color: #333; font-size: 14px;"></div>
             </div>
         </div>
     `;
+
+    const yearSelect = container.querySelector('#revenue-year-select');
+    const monthASelect = container.querySelector('#revenue-compare-month-a');
+    const monthBSelect = container.querySelector('#revenue-compare-month-b');
+    const yearTotalEl = container.querySelector('#revenue-year-total');
+    const monthAEl = container.querySelector('#revenue-month-a');
+    const monthBEl = container.querySelector('#revenue-month-b');
+    const summaryEl = container.querySelector('#revenue-comparison-summary');
+    const chartCanvas = container.querySelector('#sales-revenue-chart');
+
+    const updateRevenueView = () => {
+        const year = Number(yearSelect.value);
+        const monthA = Number(monthASelect.value);
+        const monthB = Number(monthBSelect.value);
+        const monthlyRevenue = revenueByYear[year] || Array(12).fill(0);
+        const totalYear = monthlyRevenue.reduce((sum, value) => sum + value, 0);
+        const revenueA = monthlyRevenue[monthA - 1] || 0;
+        const revenueB = monthlyRevenue[monthB - 1] || 0;
+        const diff = revenueA - revenueB;
+        const diffLabel = diff === 0
+            ? 'Hai tháng bằng nhau'
+            : diff > 0
+                ? `Tháng ${monthA} cao hơn tháng ${monthB} ${diff.toLocaleString('vi-VN')} VNĐ`
+                : `Tháng ${monthA} thấp hơn tháng ${monthB} ${(Math.abs(diff)).toLocaleString('vi-VN')} VNĐ`;
+
+        yearTotalEl.textContent = `${totalYear.toLocaleString('vi-VN')} VNĐ`;
+        monthAEl.textContent = `${revenueA.toLocaleString('vi-VN')} VNĐ`;
+        monthBEl.textContent = `${revenueB.toLocaleString('vi-VN')} VNĐ`;
+        summaryEl.innerHTML = `
+            <h4 style="margin: 0 0 10px 0; font-size: 16px;">So sánh doanh thu</h4>
+            <p style="margin: 0 0 6px;">Năm: <strong>${year}</strong></p>
+            <p style="margin: 0 0 6px;">${formatMonthLabel(monthA)}: <strong>${revenueA.toLocaleString('vi-VN')} VNĐ</strong></p>
+            <p style="margin: 0 0 0 0;">${formatMonthLabel(monthB)}: <strong>${revenueB.toLocaleString('vi-VN')} VNĐ</strong></p>
+            <p style="margin: 12px 0 0 0; font-weight: 700; color: #b16a00;">${diffLabel}</p>
+        `;
+        renderRevenueChart(chartCanvas, monthlyRevenue, [monthA, monthB]);
+    };
+
+    yearSelect?.addEventListener('change', updateRevenueView);
+    monthASelect?.addEventListener('change', updateRevenueView);
+    monthBSelect?.addEventListener('change', updateRevenueView);
+    updateRevenueView();
 }
 
 function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, productId = null, quantity = 1) {
@@ -881,12 +1165,12 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
             const cartItems = getCartItems();
             if (cartItems.length > 0) {
                 displayProductName = cartItems.map(i => `${i.name} (x${i.quantity || 1})`).join(', ');
-                itemsList = cartItems.map(i => ({ id: i.id, name: i.name, quantity: Number(i.quantity) || 1, price: Number(i.price) || 0 }));
+                itemsList = cartItems.map(i => ({ id: i.id, productId: i.id, name: i.name, quantity: Number(i.quantity) || 1, price: Number(i.price) || 0 }));
             } else {
                 displayProductName = 'Giỏ hàng';
             }
         } else {
-            itemsList = [{ id: productId, name: productName, quantity: Number(quantity) || 1, price: Number(productPrice) || 0 }];
+            itemsList = [{ id: productId, productId, name: productName, quantity: Number(quantity) || 1, price: Number(productPrice) || 0 }];
         }
 
         // Cập nhật tồn kho và sold trên backend
@@ -914,12 +1198,35 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
             }
         }
 
-        // Lưu đơn hàng vào lịch sử
+        // Gửi đơn hàng lên backend
+        const backendResponse = await fetch(`${API_BASE_URL}/orders`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                userName: user.name || user.email,
+                items: itemsList,
+                totalPrice: itemsList.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0),
+                shippingAddress
+            })
+        });
+        const backendResult = await backendResponse.json();
+        if (!backendResponse.ok || !backendResult.success) {
+            alert(backendResult.message || 'Không thể lưu đơn hàng lên server.');
+            return;
+        }
+
+        // Lưu lịch sử đơn hàng vào localStorage
         saveOrderToHistory({
             productName: displayProductName,
             items: itemsList,
-            totalPrice: productPrice,
-            shippingAddress: shippingAddress
+            totalPrice: itemsList.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0),
+            shippingAddress,
+            status: backendResult.data?.status || 'Đã đặt hàng',
+            orderDate: backendResult.data?.orderDate || new Date().toLocaleString('vi-VN'),
+            timestamp: backendResult.data?.timestamp || Date.now()
         });
 
         // Nếu đặt hàng từ giỏ hàng, xóa sạch giỏ hàng
@@ -1175,6 +1482,7 @@ function updateAuthUI() {
 function bindAuthEvents() {
     injectAuthStyles();
     const modal = createAuthModal();
+    initGoogleAuthUI();
     const form = document.getElementById('auth-form');
     const toggleBtn = document.getElementById('auth-toggle-btn');
     const closeBtn = modal.querySelector('.auth-close-btn');
