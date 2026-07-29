@@ -30,9 +30,10 @@ const FALLBACK_BRANDS = [
     { name: 'Coach' }
 ];
 
-function getBrandOptions() {
+function getBrandOptions(selectedBrand = '') {
     const brands = window.brands && Array.isArray(window.brands) ? window.brands : FALLBACK_BRANDS;
-    return brands.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
+    const selectedValue = String(selectedBrand || '').trim();
+    return `<option value="">Chọn thương hiệu</option>${brands.map(b => `<option value="${b.name}" ${selectedValue === b.name ? 'selected' : ''}>${b.name}</option>`).join('')}`;
 }
 
 function getCurrentUser() {
@@ -593,6 +594,12 @@ function logoutUser() {
     closeRolePanel();
     updateAuthUI();
     alert('Đã đăng xuất');
+    try {
+        location.reload();
+    } catch (e) {
+        // fallback: redirect to home
+        window.location.href = 'index.html';
+    }
 }
 
 const SHIPPING_ADDRESS_KEY = 'chronos_shipping_address';
@@ -851,7 +858,36 @@ function saveOrderToHistory(orderData) {
 }
 
 function showOrderHistory(container, user = null) {
-    const orders = getOrderHistory(user);
+    (async () => {
+        let orders = [];
+        const currentUser = user || getCurrentUser();
+        if (!currentUser) return container.innerHTML = '<p>Vui lòng đăng nhập để xem đơn hàng.</p>';
+        if (['manager', 'staff'].includes(currentUser.role)) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/orders`, { headers: { Authorization: `Bearer ${currentUser.token}` } });
+                const data = await res.json();
+                if (res.ok && data.success && Array.isArray(data.data)) {
+                    orders = data.data;
+                } else {
+                    orders = getOrderHistory(user);
+                }
+            } catch (e) {
+                orders = getOrderHistory(user);
+            }
+        } else {
+            // For regular customers, try to fetch latest orders from backend (if logged in), fallback to localStorage
+            try {
+                const res = await fetch(`${API_BASE_URL}/orders/mine`, { headers: { Authorization: `Bearer ${currentUser.token}` } });
+                const data = await res.json();
+                if (res.ok && data.success && Array.isArray(data.data)) {
+                    orders = data.data;
+                } else {
+                    orders = getOrderHistory(user);
+                }
+            } catch (e) {
+                orders = getOrderHistory(user);
+            }
+        }
     if (!orders || orders.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 40px 10px;">
@@ -870,36 +906,42 @@ function showOrderHistory(container, user = null) {
             ${orders.map(order => {
                 const addr = order.shippingAddress || {};
                 const fullAddr = [addr.detail, addr.ward, addr.district, addr.city].filter(Boolean).join(', ');
-                const priceText = order.totalPrice && order.totalPrice > 0
-                    ? order.totalPrice.toLocaleString('vi-VN') + ' VNĐ'
-                    : 'Liên hệ';
-                const paymentLabel = addr.payment === 'COD'
-                    ? '💵 COD (Thanh toán khi nhận)'
-                    : '🏦 Chuyển khoản ngân hàng';
+                const priceAmount = Number(order.totalPrice) || (Array.isArray(order.items) ? order.items.reduce((s, it) => s + ((Number(it.price) || 0) * (Number(it.quantity) || 1)), 0) : 0);
+                const priceText = priceAmount > 0 ? priceAmount.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ';
+                const paymentLabel = addr.payment === 'COD' ? '💵 COD (Thanh toán khi nhận)' : '🏦 Chuyển khoản ngân hàng';
+                const orderId = order._id || order.id || '';
+                const statusLabel = order.status || 'Đã đặt hàng';
 
                 return `
                     <div style="background: #fdfdfd; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 10px;">
                             <div>
-                                <strong style="color: #000; font-size: 15px;">Mã đơn: #${order.id}</strong>
-                                <span style="display: block; font-size: 12px; color: #888; margin-top: 2px;">📅 ${order.orderDate}</span>
+                                <strong style="color: #000; font-size: 15px;">Mã đơn: #${orderId}</strong>
+                                <span style="display: block; font-size: 12px; color: #888; margin-top: 2px;">📅 ${order.orderDate || ''}</span>
                             </div>
-                            <span style="background: #e8f5e9; color: #2c7a2c; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
-                                ${order.status || 'Đã đặt hàng'}
+                            <span style="background: ${statusLabel === 'Chờ duyệt' ? '#fff8e1' : '#e8f5e9'}; color: ${statusLabel === 'Chờ duyệt' ? '#b16a00' : '#2c7a2c'}; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                                ${statusLabel}
                             </span>
                         </div>
                         <div style="font-size: 14px; line-height: 1.6; color: #333;">
-                            <p style="margin: 4px 0;"><strong>Sản phẩm:</strong> ${order.productName || 'Sản phẩm'}</p>
+                            <p style="margin: 4px 0;"><strong>Sản phẩm:</strong> ${order.productName || (Array.isArray(order.items) ? order.items.map(i=> i.name + ' (x'+(i.quantity||1)+')').join(', ') : 'Sản phẩm')}</p>
                             <p style="margin: 4px 0;"><strong>Tổng tiền:</strong> <span style="color: #d4af37; font-weight: bold;">${priceText}</span></p>
                             <p style="margin: 4px 0;"><strong>Người nhận:</strong> ${addr.recipient || order.userName || 'N/A'} (${addr.phone || 'N/A'})</p>
                             <p style="margin: 4px 0;"><strong>Địa chỉ:</strong> ${fullAddr || 'N/A'}</p>
                             <p style="margin: 4px 0;"><strong>Thanh toán:</strong> ${paymentLabel}</p>
                         </div>
+                        ${(['manager','staff'].includes((currentUser||{}).role) && statusLabel === 'Chờ duyệt') ? `
+                            <div style="margin-top:10px; display:flex; gap:8px;">
+                                <button class="checkout-submit" style="background:#2c7a2c;" onclick="document.getElementById('role-panel-modal')?.remove();">Xem chi tiết</button>
+                                <button class="checkout-submit" style="background:#d4af37;" onclick="window.CHRONOS_AUTH.approveOrder('${orderId}')">Duyệt đơn</button>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
             }).join('')}
         </div>
     `;
+    })();
 }
 
 function formatMonthLabel(month) {
@@ -976,20 +1018,47 @@ function renderRevenueChart(canvas, monthlyRevenue, highlightedMonths = []) {
     ctx.stroke();
 }
 
-function showSalesRevenue(container, user = null) {
-    const orders = getOrderHistory(user);
-    if (!orders || orders.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 40px 10px;">
-                <div style="font-size: 48px; margin-bottom: 12px; color: #ccc;">📈</div>
-                <h4 style="margin-bottom: 8px; color: #333;">Chưa có đơn hàng để tính doanh thu</h4>
-                <p style="color: #666; font-size: 14px;">Tất cả doanh thu sẽ hiển thị ở đây khi có đơn hàng.</p>
-            </div>
-        `;
-        return;
-    }
+async function showSalesRevenue(container, user = null) {
+        const currentUser = user || getCurrentUser();
+        if (!currentUser) return container.innerHTML = `<p>Vui lòng đăng nhập để xem doanh thu.</p>`;
 
-    const revenueByYear = getRevenueByYearMonth(orders);
+        let revenueByYear = {};
+
+        // If manager/staff, prefer server-side aggregated revenue
+        if (['manager', 'staff'].includes(currentUser.role) && currentUser.token) {
+            try {
+                const yearParam = new Date().getFullYear();
+                const res = await fetch(`${API_BASE_URL}/orders/revenue/monthly?year=${yearParam}`, { headers: { Authorization: `Bearer ${currentUser.token}` } });
+                const data = await res.json();
+                if (res.ok && data.success && data.data) {
+                    const yr = Number(data.data.year) || yearParam;
+                    revenueByYear[yr] = Array.isArray(data.data.revenueByMonth) ? data.data.revenueByMonth.map(v => Number(v || 0)) : Array(12).fill(0);
+                } else {
+                    // fallback to local orders
+                    const orders = getOrderHistory(user);
+                    if (!orders || orders.length === 0) return container.innerHTML = `<p>Chưa có dữ liệu doanh thu.</p>`;
+                    revenueByYear = getRevenueByYearMonth(orders);
+                }
+            } catch (e) {
+                const orders = getOrderHistory(user);
+                if (!orders || orders.length === 0) return container.innerHTML = `<p>Chưa có dữ liệu doanh thu.</p>`;
+                revenueByYear = getRevenueByYearMonth(orders);
+            }
+        } else {
+            // regular customer: compute revenue from local orders (or server if available)
+            const orders = getOrderHistory(user);
+            if (!orders || orders.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px 10px;">
+                        <div style="font-size: 48px; margin-bottom: 12px; color: #ccc;">📈</div>
+                        <h4 style="margin-bottom: 8px; color: #333;">Chưa có đơn hàng để tính doanh thu</h4>
+                        <p style="color: #666; font-size: 14px;">Tất cả doanh thu sẽ hiển thị ở đây khi có đơn hàng.</p>
+                    </div>
+                `;
+                return;
+            }
+            revenueByYear = getRevenueByYearMonth(orders);
+        }
     const years = Object.keys(revenueByYear).map(Number).sort((a, b) => b - a);
     const currentYear = years[0] || new Date().getFullYear();
     const now = new Date();
@@ -1103,8 +1172,10 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
             <form id="shipping-address-form">
                 <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
                     <h4 style="margin: 0 0 10px 0;">Thông tin sản phẩm</h4>
-                    <p style="margin: 5px 0;"><strong>Sản phẩm:</strong> ${productName}</p>
-                    <p style="margin: 5px 0;"><strong>Giá:</strong> ${productPrice > 0 ? productPrice.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ'}</p>
+                    <p style="margin: 5px 0;"><strong>Sản phẩm:</strong> <span id="checkout-product-name">${productName}</span></p>
+                    <p style="margin: 5px 0;"><strong>Giá đơn vị:</strong> <span id="checkout-product-price">${productPrice > 0 ? productPrice.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ'}</span></p>
+                    <p style="margin: 5px 0;"><strong>Số lượng:</strong> <input id="checkout-quantity" type="number" min="1" value="${quantity}" style="width:80px; padding:6px; margin-left:8px;"> <span id="checkout-stock-info" style="margin-left:8px;color:#666;font-size:13px"></span></p>
+                    <p style="margin: 5px 0;"><strong>Tổng:</strong> <span id="checkout-total">${(Number(productPrice) * Number(quantity)).toLocaleString('vi-VN')} VNĐ</span></p>
                 </div>
                 <h4>Thông tin giao hàng</h4>
                 <div class="address-grid">
@@ -1131,6 +1202,46 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
         </div>
     </div>`;
     document.body.appendChild(modal);
+    // If a specific product is provided, fetch its current stock/price to limit quantity
+    (async () => {
+        let currentPrice = Number(productPrice) || 0;
+        let maxStock = null;
+        if (productId && productId !== 'Giỏ hàng') {
+            try {
+                const res = await fetch(`${API_BASE_URL}/products`);
+                const all = await res.json();
+                const list = Array.isArray(all.data) ? all.data : (Array.isArray(all) ? all : (all.products || all.data || []));
+                const prod = list.find(p => p._id === productId || p.id === productId);
+                if (prod) {
+                    currentPrice = Number(prod.price || currentPrice);
+                    maxStock = Number(prod.stock ?? null);
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+        const qtyInput = document.getElementById('checkout-quantity');
+        const totalEl = document.getElementById('checkout-total');
+        const priceEl = document.getElementById('checkout-product-price');
+        const nameEl = document.getElementById('checkout-product-name');
+        const stockInfo = document.getElementById('checkout-stock-info');
+        if (priceEl) priceEl.textContent = currentPrice > 0 ? currentPrice.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ';
+        if (qtyInput) {
+            qtyInput.min = 1;
+            if (maxStock != null) {
+                qtyInput.max = maxStock;
+                stockInfo.textContent = `(Tồn: ${maxStock})`;
+            }
+            const updateTotal = () => {
+                const q = Math.max(1, Number(qtyInput.value) || 1);
+                const capped = maxStock != null ? Math.min(q, maxStock) : q;
+                qtyInput.value = capped;
+                if (totalEl) totalEl.textContent = (Number(currentPrice || 0) * capped).toLocaleString('vi-VN') + ' VNĐ';
+            };
+            qtyInput.addEventListener('input', updateTotal);
+            updateTotal();
+        }
+    })();
     const form = modal.querySelector('#shipping-address-form');
     const city = modal.querySelector('#shipping-city');
     const district = modal.querySelector('#shipping-district');
@@ -1170,7 +1281,18 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
                 displayProductName = 'Giỏ hàng';
             }
         } else {
-            itemsList = [{ id: productId, productId, name: productName, quantity: Number(quantity) || 1, price: Number(productPrice) || 0 }];
+            // Read selected quantity from modal input (if any)
+            let selectedQty = Number(quantity) || 1;
+            const qtyInput = document.getElementById('checkout-quantity');
+            if (qtyInput) selectedQty = Math.max(1, Number(qtyInput.value) || 1);
+            // Update price from modal if available
+            const priceTextEl = document.getElementById('checkout-product-price');
+            let unitPrice = Number(productPrice) || 0;
+            if (priceTextEl) {
+                const txt = priceTextEl.textContent.replace(/[^0-9\.]/g, '');
+                unitPrice = Number(txt) || unitPrice;
+            }
+            itemsList = [{ id: productId, productId, name: productName, quantity: Number(selectedQty) || 1, price: Number(unitPrice) || 0 }];
         }
 
         // Cập nhật tồn kho và sold trên backend
@@ -1181,22 +1303,8 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
             return;
         }
 
-        for (const item of itemsList) {
-            if (!item.id) continue;
-            const response = await fetch(`${API_BASE_URL}/products/${item.id}/sell`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ quantity: item.quantity })
-            });
-            const result = await response.json();
-            if (!response.ok || !result.success) {
-                alert(result.message || `Không thể cập nhật số lượng cho sản phẩm ${item.name}.`);
-                return;
-            }
-        }
+        // NOTE: Do not decrement stock here. Stock and sold will be updated
+        // when a staff/manager approves the order on the backend.
 
         // Gửi đơn hàng lên backend
         const backendResponse = await fetch(`${API_BASE_URL}/orders`, {
@@ -1315,11 +1423,30 @@ async function submitProductFromPanel(form, messageEl) {
     messageEl.style.color = '#2c7a2c';
 }
 
-function showProductManagement(content) {
-    const brandOptions = getBrandOptions();
-    const brandField = `<select name="brand" required><option value="">Chọn thương hiệu</option>${brandOptions}</select>`;
+async function updateProductFromPanel(productId, form, messageEl) {
+    const user = getCurrentUser();
+    const payload = Object.fromEntries(new FormData(form).entries());
+    payload.price = Number(payload.price);
+    payload.stock = Number(payload.stock);
+    payload.rating = Number(payload.rating || 5);
+    const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.message || 'Không thể cập nhật sản phẩm.');
+    messageEl.textContent = `Đã cập nhật sản phẩm: ${data.data.name}`;
+    messageEl.style.color = '#2c7a2c';
+    return data.data;
+}
 
-    content.innerHTML = `<h4>Thêm sản phẩm</h4><form class="role-form" id="product-create-form">
+async function showProductManagement(content) {
+    const brandField = `<select name="brand" required>${getBrandOptions()}</select>`;
+
+    content.innerHTML = `
+        <h4 style="margin-bottom: 10px;">Quản lý sản phẩm</h4>
+        <form class="role-form" id="product-create-form" style="margin-bottom: 16px;">
             <input name="name" placeholder="Tên sản phẩm" required>
             ${brandField}
             <input name="price" type="number" min="1" placeholder="Giá (VNĐ)" required>
@@ -1329,22 +1456,81 @@ function showProductManagement(content) {
             <input name="imageUrl" type="text" placeholder="URL hoặc đường dẫn ảnh (vd: Image/xxx.webp)" required>
             <textarea name="description" rows="3" placeholder="Chi tiết sản phẩm"></textarea>
             <input name="rating" type="number" min="0" max="5" step="0.1" value="5">
-            <button type="submit">Lưu sản phẩm</button>
-            </form><div class="role-panel-message"></div>`;
+            <button type="submit">Thêm sản phẩm</button>
+        </form>
+        <div class="role-panel-message"></div>
+        <div id="product-list-management"></div>
+    `;
 
     const form = content.querySelector('#product-create-form');
     const message = content.querySelector('.role-panel-message');
-    if (!form || !message) return;
+    const listContainer = content.querySelector('#product-list-management');
+    if (!form || !message || !listContainer) return;
+
+    const renderProducts = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/products`);
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tải danh sách sản phẩm.');
+            const products = Array.isArray(data.data) ? data.data : [];
+            listContainer.innerHTML = products.length
+                ? `<div style="display:flex; flex-direction:column; gap:12px;">
+                    ${products.map((product) => `
+                        <div style="border:1px solid #e6e6e6; border-radius:10px; padding:12px; background:#fff;">
+                            <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+                                <strong>${product.name || 'Sản phẩm'}</strong>
+                                <span style="color:#d4af37; font-weight:700;">${Number(product.price || 0).toLocaleString('vi-VN')} VNĐ</span>
+                            </div>
+                            <form class="product-edit-form" data-product-id="${product._id}" style="margin-top:10px; display:grid; gap:8px;">
+                                <input name="name" value="${(product.name || '').replace(/"/g, '&quot;')}" required>
+                                <select name="brand" required>${getBrandOptions(product.brand)}</select>
+                                <input name="price" type="number" min="1" value="${product.price || ''}" required>
+                                <input name="stock" type="number" min="0" value="${product.stock ?? 0}" required>
+                                <select name="category" required>
+                                    <option value="Nam" ${product.category === 'Nam' ? 'selected' : ''}>Đồng hồ Nam</option>
+                                    <option value="Nữ" ${product.category === 'Nữ' ? 'selected' : ''}>Đồng hồ Nữ</option>
+                                </select>
+                                <input name="size" value="${(product.size || '').replace(/"/g, '&quot;')}">
+                                <input name="imageUrl" value="${(product.imageUrl || '').replace(/"/g, '&quot;')}" required>
+                                <textarea name="description" rows="2">${(product.description || '').replace(/"/g, '&quot;')}</textarea>
+                                <input name="rating" type="number" min="0" max="5" step="0.1" value="${product.rating ?? 5}">
+                                <button type="submit">Cập nhật</button>
+                            </form>
+                        </div>
+                    `).join('')}
+                </div>`
+                : '<p>Chưa có sản phẩm nào.</p>';
+
+            listContainer.querySelectorAll('.product-edit-form').forEach((editForm) => {
+                editForm.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    const productId = editForm.dataset.productId;
+                    try {
+                        await updateProductFromPanel(productId, editForm, message);
+                        await renderProducts();
+                    } catch (error) {
+                        message.textContent = error.message;
+                        message.style.color = '#c0392b';
+                    }
+                });
+            });
+        } catch (error) {
+            listContainer.innerHTML = `<p style="color:#c0392b;">${error.message}</p>`;
+        }
+    };
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         try {
             await submitProductFromPanel(form, message);
+            await renderProducts();
         } catch (error) {
             message.textContent = error.message;
             message.style.color = '#c0392b';
         }
     });
+
+    await renderProducts();
 }
 
 async function showStaffManagement(content, user) {
@@ -1646,6 +1832,29 @@ function handleToggleWishlist(productId, productName = 'sản phẩm', buttonEle
     return result;
 }
 
+async function approveOrder(orderId) {
+    const user = getCurrentUser();
+    if (!user || !user.token) {
+        alert('Bạn cần đăng nhập với quyền nhân viên để duyệt đơn.');
+        return;
+    }
+    if (!confirm('Xác nhận duyệt đơn này?')) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/orders/${orderId}/approve`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${user.token}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Không thể duyệt đơn.');
+        alert('Duyệt đơn thành công.');
+        // Re-render role panel order list if open
+        const panelContent = document.querySelector('#role-panel-modal #role-panel-content');
+        if (panelContent) showOrderHistory(panelContent, getCurrentUser());
+    } catch (error) {
+        alert(error.message || 'Lỗi khi duyệt đơn.');
+    }
+}
+
 window.CHRONOS_AUTH = {
     getCurrentUser,
     requireLogin,
@@ -1653,6 +1862,7 @@ window.CHRONOS_AUTH = {
     showCheckoutModal,
     handleProtectedAddToCart,
     handleToggleWishlist,
+    approveOrder,
     getCartCount,
     getWishlistCount,
     isInWishlist,

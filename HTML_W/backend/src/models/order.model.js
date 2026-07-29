@@ -24,7 +24,9 @@ const orderSchema = new mongoose.Schema({
   items: { type: [orderItemSchema], default: [] },
   totalPrice: { type: Number, required: true },
   shippingAddress: { type: shippingAddressSchema, required: true },
-  status: { type: String, default: 'Đã đặt hàng' },
+  status: { type: String, default: 'Chờ duyệt' },
+  approverName: { type: String, default: null },
+  approvedAt: { type: Number, default: null },
   timestamp: { type: Number, required: true },
   orderDate: { type: String, required: true }
 }, { timestamps: true });

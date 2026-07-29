@@ -43,6 +43,59 @@ class ProductController {
     }
   }
 
+  async updateProduct(req, res) {
+    try {
+      const { id } = req.params;
+      const { name, brand, price, category, size, imageUrl, rating, description, stock } = req.body;
+      const numericPrice = price !== undefined ? Number(price) : undefined;
+      const numericStock = stock !== undefined ? Number(stock) : undefined;
+
+      if (!id) {
+        return res.status(400).json({ success: false, message: 'Thiếu mã sản phẩm.' });
+      }
+
+      if (name !== undefined && !String(name).trim()) {
+        return res.status(400).json({ success: false, message: 'Tên sản phẩm không được để trống.' });
+      }
+      if (brand !== undefined && !String(brand).trim()) {
+        return res.status(400).json({ success: false, message: 'Hãng sản phẩm không được để trống.' });
+      }
+      if (category !== undefined && !String(category).trim()) {
+        return res.status(400).json({ success: false, message: 'Loại sản phẩm không được để trống.' });
+      }
+      if (imageUrl !== undefined && !String(imageUrl).trim()) {
+        return res.status(400).json({ success: false, message: 'Đường dẫn hình ảnh không được để trống.' });
+      }
+      if (numericPrice !== undefined && (!Number.isFinite(numericPrice) || numericPrice <= 0)) {
+        return res.status(400).json({ success: false, message: 'Giá sản phẩm phải là số lớn hơn 0.' });
+      }
+      if (numericStock !== undefined && (!Number.isFinite(numericStock) || numericStock < 0)) {
+        return res.status(400).json({ success: false, message: 'Tồn kho phải là số không âm.' });
+      }
+
+      const Product = require('../models/product.model');
+      const updatePayload = {};
+      if (name !== undefined) updatePayload.name = String(name).trim();
+      if (brand !== undefined) updatePayload.brand = String(brand).trim();
+      if (price !== undefined) updatePayload.price = numericPrice;
+      if (category !== undefined) updatePayload.category = String(category).trim();
+      if (size !== undefined) updatePayload.size = String(size).trim();
+      if (imageUrl !== undefined) updatePayload.imageUrl = String(imageUrl).trim();
+      if (description !== undefined) updatePayload.description = String(description).trim();
+      if (stock !== undefined) updatePayload.stock = numericStock;
+      if (rating !== undefined) updatePayload.rating = Number(rating);
+
+      const updatedProduct = await Product.findByIdAndUpdate(id, updatePayload, { new: true });
+      if (!updatedProduct) {
+        return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm để cập nhật.' });
+      }
+
+      return res.status(200).json({ success: true, message: 'Cập nhật sản phẩm thành công.', data: updatedProduct });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
   async sellProduct(req, res) {
     try {
       const { id } = req.params;
