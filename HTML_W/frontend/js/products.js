@@ -173,7 +173,7 @@ function renderProductsGrid(products) {
                 ${product.sold >= 5 ? '<span class="badge-bestseller">Bán chạy</span>' : ''}
 
                 <div class="product-actions">
-                    <button class="btn-add-cart" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>
+                    <button class="btn-add-cart" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)} data-product-price="${product.price || 0}">
                         Thêm vào giỏ
                     </button>
                     <button class="btn-wishlist ${inWishlist ? 'active' : ''}" data-action="toggle-wishlist" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>
@@ -199,7 +199,8 @@ function renderProductsGrid(products) {
             event.stopPropagation();
             const productId = button.dataset.productId;
             const productName = button.dataset.productName || 'sản phẩm';
-            window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName);
+            const productPrice = Number(button.dataset.productPrice) || 0;
+            window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName, 1, productPrice);
         });
     });
 

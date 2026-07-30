@@ -39,7 +39,7 @@ async function fetchFeaturedProducts() {
                         <p class="price">${(product.price || 0).toLocaleString('vi-VN')} đ</p>
                     </div>
                     <div class="product-actions">
-                        <button class="btn-add-cart" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>Thêm giỏ</button>
+                        <button class="btn-add-cart" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)} data-product-price="${product.price || 0}">Thêm giỏ</button>
                         <button class="btn-wishlist" data-action="toggle-wishlist" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>Yêu thích</button>
                     </div>
                 </div>
@@ -62,7 +62,8 @@ async function fetchFeaturedProducts() {
                 event.stopPropagation();
                 const productId = button.dataset.productId;
                 const productName = button.dataset.productName || 'sản phẩm';
-                window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName);
+                const productPrice = Number(button.dataset.productPrice) || 0;
+                window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName, 1, productPrice);
             });
         });
 

@@ -80,27 +80,212 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            const cartContainer = document.getElementById('cart-container');
-            const cartItems = getCartItems();
-            updateHeaderCounts();
-            const productMap = await fetchProductMap();
+        function removeCartItem(itemId) {
+            const updated = getCartItems().filter(it => it.id !== itemId);
+            saveCartItems(updated);
+            renderCart();
+        }
 
-            if (!cartItems.length) {
+        function updateCartQuantity(itemId, delta) {
+            const cartItems = getCartItems();
+            const item = cartItems.find(it => it.id === itemId);
+            if (!item) return;
+            const currentQty = Number(item.quantity || 1);
+            const nextQty = Math.max(1, currentQty + delta);
+            item.quantity = nextQty;
+            saveCartItems(cartItems);
+            renderCart();
+        }
+
+        function setCartQuantity(itemId, value) {
+            const cartItems = getCartItems();
+            const item = cartItems.find(it => it.id === itemId);
+            if (!item) return;
+            const nextQty = Math.max(1, Number(value) || 1);
+            item.quantity = nextQty;
+            saveCartItems(cartItems);
+            renderCart();
+        }
+
+        function isSameCartAsOrder(cartItems, orderItems) {
+            if (!Array.isArray(cartItems) || !Array.isArray(orderItems)) return false;
+            if (cartItems.length !== orderItems.length) return false;
+            const normalizedCart = cartItems
+                .map(item => ({ id: item.id, quantity: Number(item.quantity) || 1 }))
+                .sort((a, b) => a.id.localeCompare(b.id));
+            const normalizedOrder = orderItems
+                .map(item => ({ id: item.productId || item.id || '', quantity: Number(item.quantity) || 1 }))
+                .sort((a, b) => a.id.localeCompare(b.id));
+            return normalizedCart.every((cartItem, index) => {
+                const orderItem = normalizedOrder[index] || {};
+                return cartItem.id === orderItem.id && cartItem.quantity === orderItem.quantity;
+            });
+        }
+
+        async function clearCartIfOrderApproved(cartItems) {
+            const user = getCurrentUser();
+            if (!user || !Array.isArray(cartItems) || !cartItems.length) return false;
+            try {
+                const res = await fetch('http://localhost:5000/api/orders/mine', {
+                    headers: { Authorization: `Bearer ${user.token}` }
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success || !Array.isArray(data.data)) return false;
+                const approvedOrder = data.data.find(order => order.status === 'Đã duyệt' && isSameCartAsOrder(cartItems, order.items));
+                if (approvedOrder) {
+                    saveCartItems([]);
+                    updateHeaderCounts();
+                    return true;
+                }
+            } catch (error) {
+                console.warn('Không thể kiểm tra đơn đã duyệt:', error);
+            }
+            return false;
+        }
+
+        // Remove or reduce cart items that were already included in approved orders.
+        // For each approved order item, subtract its quantity from the cart item quantity.
+        // If resulting quantity <= 0 remove the item entirely.
+        async function syncCartWithApprovedOrders(cartItems) {
+            const user = getCurrentUser();
+            if (!user || !Array.isArray(cartItems) || !cartItems.length) return false;
+            try {
+                const res = await fetch('http://localhost:5000/api/orders/mine', {
+                    headers: { Authorization: `Bearer ${user.token}` }
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success || !Array.isArray(data.data)) return false;
+
+                // collect all approved orders' items
+                const approvedItems = [];
+                data.data.forEach(order => {
+                    if (order.status === 'Đã duyệt' && Array.isArray(order.items)) {
+                        order.items.forEach(it => {
+                            const pid = it.productId || it.id || '';
+                            const qty = Number(it.quantity) || 0;
+                            if (pid) approvedItems.push({ id: pid, quantity: qty });
+                        });
+                    }
+                });
+
+                if (!approvedItems.length) return false;
+
+                // create a map of approved quantities per product id
+                const approvedMap = approvedItems.reduce((m, it) => {
+                    m[it.id] = (m[it.id] || 0) + it.quantity;
+                    return m;
+                }, {});
+
+                let changed = false;
+                const nextCart = cartItems.map(ci => ({ ...ci }));
+                for (const cid in approvedMap) {
+                    const approvedQty = approvedMap[cid] || 0;
+                    const idx = nextCart.findIndex(c => c.id === cid);
+                    if (idx >= 0) {
+                        const currentQty = Number(nextCart[idx].quantity) || 0;
+                        const remaining = currentQty - approvedQty;
+                        if (remaining > 0) {
+                            nextCart[idx].quantity = remaining;
+                        } else {
+                            nextCart.splice(idx, 1);
+                        }
+                        changed = true;
+                    }
+                }
+
+                // Prefer clearing only if it corresponds to the last order the user placed.
+                // This prevents older approved orders from clearing a freshly edited cart.
+                const lastOrderId = localStorage.getItem('chronos_last_order_id');
+                if (lastOrderId) {
+                    const matched = data.data.find(o => (o._id === lastOrderId || o.id === lastOrderId || String(o._id) === String(lastOrderId)) && o.status === 'Đã duyệt');
+                    if (matched) {
+                        try {
+                            saveCartItems([]);
+                            sessionStorage.setItem('chronos_cart_cleared_by_approval', '1');
+                            localStorage.removeItem('chronos_last_order_id');
+                            updateHeaderCounts();
+                            try { window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { items: [] } })); } catch (e) {}
+                        } catch (e) {}
+                        return true;
+                    }
+                }
+
+                // If no lastOrderId match, fall back to previous behavior: clear if some approved order exactly matches the cart
+                const exactApproved = data.data.find(order => order.status === 'Đã duyệt' && isSameCartAsOrder(cartItems, order.items));
+                if (exactApproved) {
+                    try {
+                        saveCartItems([]);
+                        sessionStorage.setItem('chronos_cart_cleared_by_approval', '1');
+                        updateHeaderCounts();
+                        try { window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { items: [] } })); } catch (e) {}
+                    } catch (e) {}
+                    return true;
+                }
+
+                if (changed) {
+                    saveCartItems(nextCart);
+                    updateHeaderCounts();
+                    try { window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { items: nextCart } })); } catch (e) {}
+                    return true;
+                }
+            } catch (error) {
+                console.warn('Không thể đồng bộ giỏ với đơn đã duyệt:', error);
+            }
+            return false;
+        }
+
+        async function renderCart() {
+            const cartContainer = document.getElementById('cart-container');
+            if (!cartContainer) return;
+
+            const user = getCurrentUser();
+            const restrictedRole = user && ['manager', 'staff', 'admin'].includes(user.role);
+            updateHeaderCounts();
+            if (restrictedRole) {
                 cartContainer.innerHTML = `
                     <div class="empty-state">
-                        <h3>Giỏ hàng trống.</h3>
-                        <p>Chọn sản phẩm bạn muốn mua và thêm vào giỏ.</p>
+                        <h3>Nhân viên/quản lý không sử dụng giỏ hàng.</h3>
+                        <p>Vai trò ${user.role} chỉ quản lý đơn hàng, không cần giỏ hàng mua sắm.</p>
                     </div>
                 `;
                 return;
             }
 
+            let cartItems = getCartItems();
+            if (!cartItems.length) {
+                renderEmptyCart();
+                return;
+            }
+
+            // Attempt to sync cart with any approved orders so products
+            // that were purchased and approved by staff are removed or reduced.
+            // This is a targeted sync (doesn't clear the whole cart).
+            try {
+                const synced = await syncCartWithApprovedOrders(cartItems);
+                if (synced) {
+                    cartItems = getCartItems();
+                    if (!cartItems.length) {
+                        const showApprovedMsg = sessionStorage.getItem('chronos_cart_cleared_by_approval');
+                        if (showApprovedMsg) {
+                            sessionStorage.removeItem('chronos_cart_cleared_by_approval');
+                            renderEmptyCart('Đơn đã được phê duyệt, giỏ hàng đã được làm mới.', 'Các sản phẩm trong giỏ đã được chuyển vào đơn và được nhân viên duyệt.');
+                            return;
+                        }
+                        renderEmptyCart();
+                        return;
+                    }
+                }
+            } catch (e) {
+                // ignore sync errors and continue rendering current cart
+            }
+
+            const productMap = await fetchProductMap();
             const totalPrice = cartItems.reduce((sum, item) => {
                 const product = productMap[item.id] || {};
                 const p = product.price || item.price || 0;
-                return sum + (p * (item.quantity || 1));
+                return sum + (p * (Number(item.quantity) || 1));
             }, 0);
+            const totalQuantity = cartItems.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
 
             const cardsHTML = cartItems.map(item => {
                 const product = productMap[item.id] || {};
@@ -108,17 +293,23 @@
                 const price = product.price || item.price || 0;
                 const quantity = item.quantity || 1;
                 const itemTotal = price * quantity;
+                const safeProductName = String(item.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                 return `
-                    <div class="cart-card">
+                    <div class="cart-card" data-item-id="${item.id}">
                         <img src="${imageUrl}" alt="${item.name}">
                         <div class="cart-info">
                             <h2>${item.name}</h2>
                             <p>Giá: ${price ? price.toLocaleString('vi-VN') + ' đ' : 'Chưa có giá'}</p>
-                            <p>Số lượng: ${quantity}</p>
+                            <div class="cart-quantity">
+                                <button type="button" onclick="updateCartQuantity('${item.id}', -1)">-</button>
+                                <input type="number" min="1" value="${quantity}" onchange="setCartQuantity('${item.id}', this.value)" style="width: 60px; text-align: center; border: 1px solid #ccc; border-radius: 8px; padding: 6px;">
+                                <button type="button" onclick="updateCartQuantity('${item.id}', 1)">+</button>
+                            </div>
+                            <p style="margin-top: 8px; font-weight:700;">Thành tiền: ${itemTotal.toLocaleString('vi-VN')} đ</p>
                         </div>
                         <div class="cart-actions">
-                            <button class="btn-checkout" onclick="window.CHRONOS_AUTH?.showCheckoutModal(${JSON.stringify(item.name)}, ${itemTotal}, '${item.id}', ${quantity})">Thanh toán món này</button>
-                            <button class="btn-remove" onclick="(function(){ const updated = getCartItems().filter(it => it.id !== '${item.id}'); saveCartItems(updated); window.location.reload(); })()">Xóa</button>
+                            <button class="btn-checkout" onclick="window.CHRONOS_AUTH?.showCheckoutModal('${safeProductName}', ${price}, '${item.id}', ${quantity})">Thanh toán món này</button>
+                            <button class="btn-remove" onclick="removeCartItem('${item.id}')">Xóa</button>
                         </div>
                     </div>
                 `;
@@ -127,15 +318,52 @@
             const summaryHTML = `
                 <div style="background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
                     <div>
-                        <h3 style="margin: 0 0 5px 0;">Tổng cộng giỏ hàng (${cartItems.length} món)</h3>
+                        <h3 style="margin: 0 0 5px 0;">Tổng cộng giỏ hàng (${cartItems.length} món, ${totalQuantity} chiếc)</h3>
                         <p style="margin: 0; color: #555; font-size: 16px;">Tổng tiền: <strong style="color: #d4af37; font-size: 20px;">${totalPrice > 0 ? totalPrice.toLocaleString('vi-VN') + ' đ' : 'Liên hệ'}</strong></p>
                     </div>
-                    <button class="btn-checkout" style="padding: 12px 28px; font-size: 16px; width: auto;" onclick="window.CHRONOS_AUTH?.showCheckoutModal('Giỏ hàng', ${totalPrice})">Thanh toán tất cả</button>
+                    <button class="btn-checkout" style="padding: 12px 28px; font-size: 16px; width: auto;" onclick="window.CHRONOS_AUTH?.showCheckoutModal('Giỏ hàng', ${totalPrice}, 'Giỏ hàng', ${totalQuantity})">Thanh toán tất cả</button>
                 </div>
             `;
 
             cartContainer.innerHTML = cardsHTML + summaryHTML;
+            updateHeaderCounts();
+        }
+        
+        function renderEmptyCart(title = 'Giỏ hàng trống.', message = 'Chọn sản phẩm bạn muốn mua và thêm vào giỏ.') {
+            const cartContainer = document.getElementById('cart-container');
+            if (!cartContainer) return;
+            cartContainer.innerHTML = `
+                <div class="empty-state">
+                    <h3>${title}</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+        
+        // Expose render function so other scripts can call it directly
+        try { window.renderCart = renderCart; } catch (e) { /* ignore */ }
+
+        // Listen for same-page custom event (dispatched by auth.js)
+        window.addEventListener('cartUpdated', (e) => {
+            try { console.debug('cartUpdated event received', e && e.detail); } catch(e){}
+            try { renderCart(); } catch (err) { /* ignore */ }
         });
+
+        // Listen for storage changes from other tabs/windows
+        window.addEventListener('storage', (e) => {
+            try { console.debug('storage event', e && e.key); } catch(e){}
+            if (e.key === 'chronos_cart' || e.key === 'chronos_cart_sync') {
+                try { renderCart(); } catch (err) { /* ignore */ }
+            }
+        });
+
+        // Re-render when the tab/window regains focus (helps when user adds in another tab)
+        window.addEventListener('focus', () => {
+            try { console.debug('window focus -> renderCart'); } catch(e){}
+            try { renderCart(); } catch (err) { /* ignore */ }
+        });
+
+        document.addEventListener('DOMContentLoaded', renderCart);
     </script>
 </body>
 </html>

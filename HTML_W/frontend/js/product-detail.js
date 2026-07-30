@@ -120,6 +120,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <span class="sale-tag">SALE: 20%</span>
                 </div>
 
+                ${!isAdmin ? `
+                <div class="quantity-box" style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:14px; color:#333;">
+                        <span>Số lượng:</span>
+                        <input id="detail-quantity-input" type="number" min="1" value="1" style="width:80px; padding:10px 12px; border-radius:8px; border:1px solid #ddd;">
+                    </label>
+                    <span id="detail-stock-info" style="color:#666; font-size:13px;">${product.stock != null ? `Tồn: ${product.stock}` : ''}</span>
+                </div>
+                ` : ''}
+
                 <div class="action-buttons">
                     ${isManager ? `
                         <button class="admin-edit-btn" type="button" id="admin-edit-toggle">Sửa sản phẩm</button>
@@ -128,7 +138,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <button class="admin-edit-btn" type="button" id="admin-edit-toggle">Sửa sản phẩm</button>
                     ` : `
                         <button class="btn-buy-now" data-action="buy-now" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)} data-product-price="${product.price || 0}">Mua Ngay</button>
-                        <button class="btn-add-cart-detail" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)} ${product.stock === 0 ? 'disabled' : ''}>Thêm Vào Giỏ</button>
+                        <button class="btn-add-cart-detail" data-action="add-cart" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)} data-product-price="${product.price || 0}" ${product.stock === 0 ? 'disabled' : ''}>Thêm Vào Giỏ</button>
                         <button class="btn-wishlist-detail ${isInWishlist ? 'active' : ''}" data-action="toggle-wishlist" data-product-id="${product._id}" data-product-name=${JSON.stringify(product.name)}>
                             ${isInWishlist ? 'Bỏ yêu thích' : 'Thêm yêu thích'}
                         </button>
@@ -179,9 +189,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (action === 'buy-now') {
                     const buyProductId = button.dataset.productId || productId;
-                    window.CHRONOS_AUTH?.showCheckoutModal(productName, productPrice, buyProductId, 1);
+                    const qtyInput = document.getElementById('detail-quantity-input');
+                    const selectedQty = qtyInput ? Math.max(1, Number(qtyInput.value) || 1) : 1;
+                    window.CHRONOS_AUTH?.showCheckoutModal(productName, productPrice, buyProductId, selectedQty);
                 } else if (action === 'add-cart') {
-                    window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName);
+                    const qtyInput = document.getElementById('detail-quantity-input');
+                    const selectedQty = qtyInput ? Math.max(1, Number(qtyInput.value) || 1) : 1;
+                    const productPrice = parseFloat(button.dataset.productPrice) || 0;
+                    window.CHRONOS_AUTH?.handleProtectedAddToCart(productId, productName, selectedQty, productPrice);
                 } else if (action === 'toggle-wishlist') {
                     window.CHRONOS_AUTH?.handleToggleWishlist(productId, productName, button);
                 } else if (action === 'delete-product') {

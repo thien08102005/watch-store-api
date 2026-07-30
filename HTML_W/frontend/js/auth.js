@@ -48,14 +48,31 @@ function getCurrentUser() {
 
 function getCartItems() {
     try {
-        return JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]');
+        const saved = localStorage.getItem(CART_STORAGE_KEY);
+        const parsed = saved ? JSON.parse(saved) : [];
+        return Array.isArray(parsed) ? parsed : [];
     } catch (error) {
         return [];
     }
 }
 
 function saveCartItems(items) {
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    const arr = Array.isArray(items) ? items : [];
+    try {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(arr));
+        try { console.debug('saveCartItems -> saved', arr); } catch(e){}
+        // write a small sync key so other tabs receive a storage event
+        try { localStorage.setItem('chronos_cart_sync', String(Date.now())); } catch(e){}
+    } catch (e) {
+        console.warn('Không thể lưu giỏ hàng:', e);
+    }
+    try {
+        updateHeaderCounts();
+    } catch (e) {}
+    try {
+        window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { items: arr } }));
+    } catch (e) {}
+    try { console.debug('saveCartItems -> dispatched cartUpdated'); } catch(e){}
 }
 
 function getWishlistItems() {
@@ -78,16 +95,38 @@ function getWishlistCount() {
     return getWishlistItems().length;
 }
 
-function addToCart(productId, productName) {
+function addToCart(productId, productName, quantity = 1, price = 0) {
+    const user = getCurrentUser();
+    if (user && ['manager', 'staff', 'admin'].includes(user.role)) {
+        alert('Vai trò quản lý/nhân viên không thể thêm sản phẩm vào giỏ hàng.');
+        return;
+    }
+    if (!productId) {
+        console.warn('Không thể thêm sản phẩm vào giỏ hàng: thiếu productId.');
+        return;
+    }
     const cart = getCartItems();
     const existing = cart.find(item => item.id === productId);
+    const normalizedQuantity = Math.max(1, Number(quantity) || 1);
     if (existing) {
-        existing.quantity = (existing.quantity || 0) + 1;
+        existing.quantity = (existing.quantity || 0) + normalizedQuantity;
+        if (price > 0) {
+            existing.price = price;
+        }
     } else {
-        cart.push({ id: productId, name: productName, quantity: 1 });
+        const item = { id: productId, name: productName, quantity: normalizedQuantity };
+        if (price > 0) item.price = price;
+        cart.push(item);
     }
     saveCartItems(cart);
+    try { console.debug('addToCart -> cart now', cart); } catch(e){}
     updateHeaderCounts();
+    try {
+        // Notify current page listeners
+        window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { items: cart } }));
+    } catch (e) {
+        // ignore
+    }
 }
 
 function toggleWishlist(productId, productName) {
@@ -110,19 +149,28 @@ function isInWishlist(productId) {
 }
 
 function updateHeaderCounts() {
+    const cartIcon = document.getElementById('cart-icon');
+    const wishlistIcon = document.getElementById('wishlist-icon');
     const cartCountEl = document.getElementById('cart-count');
     const wishlistCountEl = document.getElementById('wishlist-count');
     const user = getCurrentUser();
-    const cartCount = user ? getCartCount() : 0;
-    const wishlistCount = user ? getWishlistCount() : 0;
+    const restrictedRole = user && ['manager', 'staff', 'admin'].includes(user.role);
+    const cartCount = !restrictedRole ? getCartCount() : 0;
+    const wishlistCount = user && !restrictedRole ? getWishlistCount() : 0;
 
+    if (cartIcon) {
+        cartIcon.style.display = restrictedRole ? 'none' : 'inline-flex';
+    }
+    if (wishlistIcon) {
+        wishlistIcon.style.display = restrictedRole ? 'none' : 'inline-flex';
+    }
     if (cartCountEl) {
         cartCountEl.textContent = cartCount;
-        cartCountEl.style.display = cartCount > 0 ? 'inline-flex' : 'none';
+        cartCountEl.style.display = (!restrictedRole && cartCount > 0) ? 'inline-flex' : 'none';
     }
     if (wishlistCountEl) {
         wishlistCountEl.textContent = wishlistCount;
-        wishlistCountEl.style.display = wishlistCount > 0 ? 'inline-flex' : 'none';
+        wishlistCountEl.style.display = !restrictedRole && wishlistCount > 0 ? 'inline-flex' : 'none';
     }
 }
 
@@ -1162,6 +1210,7 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
     if (!requireLogin('mua ngay')) return;
     document.getElementById('checkout-modal')?.remove();
     const savedAddress = JSON.parse(localStorage.getItem(SHIPPING_ADDRESS_KEY) || 'null') || {};
+    const isCartOrder = productId === 'Giỏ hàng';
     const modal = document.createElement('div');
     modal.id = 'checkout-modal';
     modal.className = 'auth-modal active';
@@ -1173,9 +1222,9 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
                 <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
                     <h4 style="margin: 0 0 10px 0;">Thông tin sản phẩm</h4>
                     <p style="margin: 5px 0;"><strong>Sản phẩm:</strong> <span id="checkout-product-name">${productName}</span></p>
-                    <p style="margin: 5px 0;"><strong>Giá đơn vị:</strong> <span id="checkout-product-price">${productPrice > 0 ? productPrice.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ'}</span></p>
-                    <p style="margin: 5px 0;"><strong>Số lượng:</strong> <input id="checkout-quantity" type="number" min="1" value="${quantity}" style="width:80px; padding:6px; margin-left:8px;"> <span id="checkout-stock-info" style="margin-left:8px;color:#666;font-size:13px"></span></p>
-                    <p style="margin: 5px 0;"><strong>Tổng:</strong> <span id="checkout-total">${(Number(productPrice) * Number(quantity)).toLocaleString('vi-VN')} VNĐ</span></p>
+                    <p style="margin: 5px 0;"><strong>${isCartOrder ? 'Tổng giá' : 'Giá đơn vị'}:</strong> <span id="checkout-product-price">${productPrice > 0 ? productPrice.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ'}</span></p>
+                    <p style="margin: 5px 0;"><strong>Số lượng:</strong> <input id="checkout-quantity" type="number" min="1" value="${quantity}" ${isCartOrder ? 'readonly' : ''} style="width:80px; padding:6px; margin-left:8px;"> <span id="checkout-stock-info" style="margin-left:8px;color:#666;font-size:13px">${isCartOrder ? '(Tổng số lượng đơn hàng)' : ''}</span></p>
+                    <p style="margin: 5px 0;"><strong>Tổng:</strong> <span id="checkout-total">${isCartOrder ? Number(productPrice).toLocaleString('vi-VN') + ' VNĐ' : (Number(productPrice) * Number(quantity)).toLocaleString('vi-VN') + ' VNĐ'}</span></p>
                 </div>
                 <h4>Thông tin giao hàng</h4>
                 <div class="address-grid">
@@ -1223,7 +1272,6 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
         const qtyInput = document.getElementById('checkout-quantity');
         const totalEl = document.getElementById('checkout-total');
         const priceEl = document.getElementById('checkout-product-price');
-        const nameEl = document.getElementById('checkout-product-name');
         const stockInfo = document.getElementById('checkout-stock-info');
         if (priceEl) priceEl.textContent = currentPrice > 0 ? currentPrice.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ';
         if (qtyInput) {
@@ -1232,13 +1280,27 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
                 qtyInput.max = maxStock;
                 stockInfo.textContent = `(Tồn: ${maxStock})`;
             }
+            if (isCartOrder) {
+                qtyInput.readOnly = true;
+                qtyInput.style.backgroundColor = '#f0f0f0';
+                qtyInput.style.border = '1px solid #ccc';
+            }
             const updateTotal = () => {
                 const q = Math.max(1, Number(qtyInput.value) || 1);
                 const capped = maxStock != null ? Math.min(q, maxStock) : q;
                 qtyInput.value = capped;
-                if (totalEl) totalEl.textContent = (Number(currentPrice || 0) * capped).toLocaleString('vi-VN') + ' VNĐ';
+                if (totalEl) {
+                    if (isCartOrder) {
+                        totalEl.textContent = Number(currentPrice || 0).toLocaleString('vi-VN') + ' VNĐ';
+                        stockInfo.textContent = `(Tổng số lượng đơn hàng: ${quantity})`;
+                    } else {
+                        totalEl.textContent = (Number(currentPrice || 0) * capped).toLocaleString('vi-VN') + ' VNĐ';
+                    }
+                }
             };
-            qtyInput.addEventListener('input', updateTotal);
+            if (!isCartOrder) {
+                qtyInput.addEventListener('input', updateTotal);
+            }
             updateTotal();
         }
     })();
@@ -1272,7 +1334,7 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
 
         let displayProductName = productName;
         let itemsList = [];
-        if (productName === 'Giỏ hàng') {
+        if (productName === 'Giỏ hàng' || productId === 'Giỏ hàng') {
             const cartItems = getCartItems();
             if (cartItems.length > 0) {
                 displayProductName = cartItems.map(i => `${i.name} (x${i.quantity || 1})`).join(', ');
@@ -1325,6 +1387,13 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
             alert(backendResult.message || 'Không thể lưu đơn hàng lên server.');
             return;
         }
+
+        // Remember the last order id so the frontend only clears the cart
+        // when the staff actually approves this specific order.
+        try {
+            const lastId = backendResult.data?._id || backendResult.data?.id || backendResult.data?.orderId || null;
+            if (lastId) localStorage.setItem('chronos_last_order_id', String(lastId));
+        } catch (e) {}
 
         // Lưu lịch sử đơn hàng vào localStorage
         saveOrderToHistory({
@@ -1784,9 +1853,13 @@ function bindAuthEvents() {
     if (cartIcon) {
         cartIcon.addEventListener('click', (event) => {
             event.preventDefault();
-            if (!requireLogin('xem giỏ hàng')) {
+            const user = getCurrentUser();
+            const restrictedRole = user && ['manager', 'staff', 'admin'].includes(user.role);
+            if (restrictedRole) {
+                alert('Nhân viên/quản lý không sử dụng giỏ hàng.');
                 return;
             }
+            // allow guests and customers to view the cart
             window.location.href = 'cart.html';
         });
     }
@@ -1807,12 +1880,18 @@ function handleProtectedBuyNow(productName = 'sản phẩm', productPrice = 0, p
     showCheckoutModal(productName, productPrice, productId, quantity);
 }
 
-function handleProtectedAddToCart(productId, productName = 'sản phẩm') {
-    if (!requireLogin('thêm vào giỏ hàng')) {
+function handleProtectedAddToCart(productId, productName = 'sản phẩm', quantity = 1, price = 0) {
+    // Allow guests to add to cart. Only block manager/staff/admin roles.
+    const user = getCurrentUser();
+    if (user && ['manager', 'staff', 'admin'].includes(user.role)) {
+        alert('Nhân viên/quản lý không được thêm sản phẩm vào giỏ hàng.');
         return;
     }
-    addToCart(productId, productName);
-    alert(`Đã thêm "${productName}" vào giỏ hàng.`);
+    addToCart(productId, productName, quantity, price);
+    try {
+        // Friendly notice; non-blocking for guests
+        alert(`Đã thêm "${productName}" số lượng ${quantity} vào giỏ hàng.`);
+    } catch (e) {}
 }
 
 function handleToggleWishlist(productId, productName = 'sản phẩm', buttonElement = null) {
