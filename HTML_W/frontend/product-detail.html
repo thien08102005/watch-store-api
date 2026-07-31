@@ -59,9 +59,41 @@
             z-index: 9999;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 12px 20px 0;
+            padding: 8px 12px;
+            border: 1px solid #d4af37;
+            border-radius: 999px;
+            background: #fff;
+            color: #111;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+        }
+        .back-btn:hover {
+            background: #f8f2dc;
+        }
         .fixed-contact-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 18px 20px 0;
+            padding: 10px 14px;
+            border: 1px solid #d4af37;
+            border-radius: 999px;
+            background: #fff;
+            color: #111;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
         }
 
         /* Container Chi tiết sản phẩm */
@@ -70,7 +102,7 @@
             grid-template-columns: 1fr 1fr;
             gap: 40px;
             max-width: 1200px;
-            margin: 40px auto;
+            margin: 24px auto;
             padding: 0 20px;
         }
 
@@ -78,7 +110,7 @@
         .product-image-box {
             border: 1px solid #eaeaea;
             border-radius: 8px;
-            padding: 20px;
+            padding: 14px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -256,6 +288,7 @@
         }
         .btn-add-cart-detail:hover { background: #3154b6; }
 
+        /* back button placed inside product image box */
         .hotline-box {
             margin-top: 15px;
             font-size: 14px;
@@ -294,7 +327,22 @@
             <a href="#" class="icon-button" id="cart-icon"><i class="fas fa-shopping-cart"></i><span class="icon-count" id="cart-count">0</span></a>
         </div>
     </header>
+
+    <script>
+        function goBackOrHome() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+    </script>
+
     <a href="https://zalo.me/g/ihfgjp538" class="fixed-contact-btn" target="_blank" rel="noopener noreferrer">Liên hệ</a>
+
+    <button class="back-btn" type="button" onclick="goBackOrHome()" title="Quay lại">
+        <i class="fas fa-arrow-left"></i> Quay lại
+    </button>
 
     <!-- Khu vực hiển thị chi tiết sản phẩm -->
     <div class="detail-container" id="product-detail-content">
