@@ -159,18 +159,18 @@ function updateHeaderCounts() {
     const wishlistCount = user && !restrictedRole ? getWishlistCount() : 0;
 
     if (cartIcon) {
-        cartIcon.style.display = restrictedRole ? 'none' : 'inline-flex';
+        cartIcon.style.display = 'inline-flex';
     }
     if (wishlistIcon) {
-        wishlistIcon.style.display = restrictedRole ? 'none' : 'inline-flex';
+        wishlistIcon.style.display = 'inline-flex';
     }
     if (cartCountEl) {
         cartCountEl.textContent = cartCount;
-        cartCountEl.style.display = (!restrictedRole && cartCount > 0) ? 'inline-flex' : 'none';
+        cartCountEl.style.display = 'inline-flex';
     }
     if (wishlistCountEl) {
         wishlistCountEl.textContent = wishlistCount;
-        wishlistCountEl.style.display = !restrictedRole && wishlistCount > 0 ? 'inline-flex' : 'none';
+        wishlistCountEl.style.display = 'inline-flex';
     }
 }
 

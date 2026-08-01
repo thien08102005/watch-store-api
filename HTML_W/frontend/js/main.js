@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Hàm gọi API và chỉ lấy 4 sản phẩm đại diện cho trang chủ
 async function fetchFeaturedProducts() {
     const productList = document.getElementById('product-list');
+    const heroBuyNowButton = document.getElementById('hero-buy-now');
     if (!productList) return;
 
     try {
@@ -47,6 +48,12 @@ async function fetchFeaturedProducts() {
         });
 
         productList.innerHTML = htmlContent;
+
+        if (heroBuyNowButton) {
+            heroBuyNowButton.addEventListener('click', () => {
+                window.location.href = 'products.html';
+            });
+        }
 
         productList.querySelectorAll('.product-card').forEach(card => {
             card.addEventListener('click', () => {
