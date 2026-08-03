@@ -5,25 +5,803 @@ info:
   description: Tài liệu RESTful API cho đồ án môn Công nghệ phần mềm
 servers:
   - url: http://localhost:5000
+tags:
+  - name: Auth
+    description: Đăng ký, đăng nhập, quản lý tài khoản
+  - name: Products
+    description: Quản lý sản phẩm
+  - name: Orders
+    description: Đơn hàng và báo cáo doanh thu
 paths:
-  /api/products:
-    get:
-      summary: Lấy danh sách sản phẩm
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Đăng ký tài khoản mới
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  example: Nguyễn Văn A
+                email:
+                  type: string
+                  example: user@example.com
+                password:
+                  type: string
+                  example: 123456
+      responses:
+        '201':
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Thiếu thông tin đăng ký
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email đã tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Đăng nhập bằng email và mật khẩu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  example: user@example.com
+                password:
+                  type: string
+                  example: 123456
       responses:
         '200':
-          description: Trả về danh sách đồng hồ thành công
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Mật khẩu không đúng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Email chưa được đăng ký
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/google:
     post:
-      summary: Thêm sản phẩm (quản lý hoặc nhân viên)
+      tags: [Auth]
+      summary: Đăng nhập bằng Google
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credential]
+              properties:
+                credential:
+                  type: string
+                  example: google_id_token
+      responses:
+        '200':
+          description: Đăng nhập Google thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Thiếu credential hoặc không lấy được email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Google login thất bại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Lấy thông tin tài khoản hiện tại
       security:
         - bearerAuth: []
       responses:
-        '201':
-          description: Thêm sản phẩm thành công
+        '200':
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/users:
+    get:
+      tags: [Auth]
+      summary: Lấy danh sách người dùng (chỉ quản lý)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Danh sách người dùng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
         '403':
           description: Không có quyền
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/users/staff:
+    post:
+      tags: [Auth]
+      summary: Tạo tài khoản nhân viên (chỉ quản lý)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '201':
+          description: Tạo nhân viên thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '403':
+          description: Không có quyền
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/users/{id}/role:
+    patch:
+      tags: [Auth]
+      summary: Cập nhật vai trò người dùng (chỉ quản lý)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID người dùng
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [staff, customer]
+      responses:
+        '200':
+          description: Cập nhật vai trò thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '403':
+          description: Không có quyền
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Không tìm thấy tài khoản
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/products:
+    get:
+      tags: [Products]
+      summary: Lấy danh sách sản phẩm
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+          description: Lọc theo loại sản phẩm
+        - in: query
+          name: brand
+          schema:
+            type: string
+          description: Lọc theo hãng sản phẩm
+      responses:
+        '200':
+          description: Trả về danh sách sản phẩm
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+    post:
+      tags: [Products]
+      summary: Thêm sản phẩm (quản lý hoặc nhân viên)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, brand, price, category, imageUrl, stock]
+              properties:
+                name:
+                  type: string
+                brand:
+                  type: string
+                price:
+                  type: number
+                category:
+                  type: string
+                size:
+                  type: string
+                imageUrl:
+                  type: string
+                rating:
+                  type: number
+                description:
+                  type: string
+                stock:
+                  type: number
+      responses:
+        '201':
+          description: Thêm sản phẩm thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Không có quyền
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/products/{id}:
+    put:
+      tags: [Products]
+      summary: Cập nhật sản phẩm theo ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID sản phẩm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                brand:
+                  type: string
+                price:
+                  type: number
+                category:
+                  type: string
+                size:
+                  type: string
+                imageUrl:
+                  type: string
+                rating:
+                  type: number
+                description:
+                  type: string
+                stock:
+                  type: number
+      responses:
+        '200':
+          description: Cập nhật sản phẩm thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Không tìm thấy sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/products/{id}/sell:
+    patch:
+      tags: [Products]
+      summary: Cập nhật số lượng đã bán cho sản phẩm
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID sản phẩm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: number
+                  example: 1
+      responses:
+        '200':
+          description: Cập nhật số lượng bán thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          description: Số lượng không hợp lệ hoặc tồn kho không đủ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/orders:
+    post:
+      tags: [Orders]
+      summary: Tạo đơn hàng mới
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, totalPrice, shippingAddress]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/OrderItem'
+                totalPrice:
+                  type: number
+                shippingAddress:
+                  $ref: '#/components/schemas/ShippingAddress'
+                userName:
+                  type: string
+      responses:
+        '201':
+          description: Đặt hàng thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          description: Dữ liệu đơn hàng không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [Orders]
+      summary: Lấy danh sách đơn hàng (quản lý hoặc nhân viên)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Danh sách đơn hàng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+        '403':
+          description: Không có quyền
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/orders/mine:
+    get:
+      tags: [Orders]
+      summary: Lấy đơn hàng của tài khoản hiện tại
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Danh sách đơn hàng của người dùng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+
+  /api/orders/{id}/approve:
+    put:
+      tags: [Orders]
+      summary: Duyệt đơn hàng (quản lý hoặc nhân viên)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID đơn hàng
+      responses:
+        '200':
+          description: Duyệt đơn hàng thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          description: Đơn hàng đã xử lý hoặc tồn kho không đủ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Không có quyền
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Không tìm thấy đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/orders/revenue:
+    get:
+      tags: [Orders]
+      summary: Lấy báo cáo doanh thu theo tháng trong năm
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: year
+          schema:
+            type: integer
+          description: Năm cần thống kê
+      responses:
+        '200':
+          description: Báo cáo doanh thu
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      years:
+                        type: array
+                        items:
+                          type: integer
+                      year:
+                        type: integer
+                      revenueByMonth:
+                        type: array
+                        items:
+                          type: number
+
+  /api/orders/revenue/monthly:
+    get:
+      tags: [Orders]
+      summary: Lấy doanh thu tổng hợp theo tháng từ collection revenue
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: year
+          schema:
+            type: integer
+          description: Năm cần thống kê
+      responses:
+        '200':
+          description: Doanh thu theo tháng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      years:
+                        type: array
+                        items:
+                          type: integer
+                      year:
+                        type: integer
+                      revenueByMonth:
+                        type: array
+                        items:
+                          type: number
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Dữ liệu không hợp lệ
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 64f2a1b9c0d1e2f3a4b5c6d
+        name:
+          type: string
+          example: Nguyễn Văn A
+        email:
+          type: string
+          example: user@example.com
+        role:
+          type: string
+          enum: [manager, staff, customer]
+          example: customer
+    Product:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f2a1b9c0d1e2f3a4b5c6d
+        name:
+          type: string
+          example: Đồng hồ Nam
+        brand:
+          type: string
+          example: Rolex
+        price:
+          type: number
+          example: 15000000
+        category:
+          type: string
+          example: Nam
+        size:
+          type: string
+          example: 40mm
+        imageUrl:
+          type: string
+          example: /images/watch.jpg
+        description:
+          type: string
+          example: Đồng hồ cao cấp
+        rating:
+          type: number
+          example: 5
+        stock:
+          type: number
+          example: 10
+        sold:
+          type: number
+          example: 3
+        createdBy:
+          type: string
+          example: 64f2a1b9c0d1e2f3a4b5c6d
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          example: 64f2a1b9c0d1e2f3a4b5c6d
+        name:
+          type: string
+          example: Đồng hồ Nam
+        price:
+          type: number
+          example: 15000000
+        quantity:
+          type: number
+          example: 1
+    ShippingAddress:
+      type: object
+      properties:
+        recipient:
+          type: string
+          example: Nguyễn Văn A
+        phone:
+          type: string
+          example: 0909123456
+        city:
+          type: string
+          example: Hà Nội
+        district:
+          type: string
+          example: Cầu Giấy
+        ward:
+          type: string
+          example: Dịch Vọng
+        detail:
+          type: string
+          example: Số 1 đường ABC
+        payment:
+          type: string
+          example: COD
+    Order:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f2a1b9c0d1e2f3a4b5c6d
+        userId:
+          type: string
+          example: 64f2a1b9c0d1e2f3a4b5c6d
+        userEmail:
+          type: string
+          example: user@example.com
+        userName:
+          type: string
+          example: Nguyễn Văn A
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        totalPrice:
+          type: number
+          example: 15000000
+        shippingAddress:
+          $ref: '#/components/schemas/ShippingAddress'
+        status:
+          type: string
+          example: Chờ duyệt
+        approverName:
+          type: string
+          nullable: true
+        approvedAt:
+          type: integer
+          nullable: true
+        timestamp:
+          type: integer
+        orderDate:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+    ProductResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Product'
+    OrderResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/Order'

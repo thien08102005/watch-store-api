@@ -1,0 +1,40 @@
+version: '3.9'
+services:
+  mongo:
+    image: mongo:7
+    container_name: chronos-mongo
+    restart: always
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chronos-backend
+    restart: always
+    depends_on:
+      - mongo
+    environment:
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/ChronosWatchDB
+      JWT_SECRET: supersecret
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - '5000:5000'
+
+  frontend:
+    image: nginx:alpine
+    container_name: chronos-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - '80:80'
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+
+volumes:
+  mongo-data:
