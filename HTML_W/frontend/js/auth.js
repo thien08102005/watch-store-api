@@ -1158,7 +1158,10 @@ async function showSalesRevenue(container, user = null) {
                 <div style="background: #f9f9f9; border-radius: 14px; padding: 18px;">
                     <canvas id="sales-revenue-chart" style="width: 100%; max-width: 100%; height: 320px;"></canvas>
                 </div>
-                <div id="revenue-comparison-summary" style="background: #fff9e6; border: 1px solid #f0dca8; border-radius: 14px; padding: 18px; color: #333; font-size: 14px;"></div>
+                    <div style="display:flex; gap:12px; align-items:center; justify-content:space-between;">
+                        <div id="revenue-comparison-summary" style="background: #fff9e6; border: 1px solid #f0dca8; border-radius: 14px; padding: 18px; color: #333; font-size: 14px; flex:1;"></div>
+                        ${(['manager','staff'].includes(currentUser.role)) ? `<div style="min-width:160px; text-align:right;"><button id="export-revenue-btn" style="background:#d4af37;color:#111;border:none;padding:10px 14px;border-radius:8px;cursor:pointer">Xuất Excel</button></div>` : ''}
+                    </div>
             </div>
         </div>
     `;
@@ -1171,6 +1174,7 @@ async function showSalesRevenue(container, user = null) {
     const monthBEl = container.querySelector('#revenue-month-b');
     const summaryEl = container.querySelector('#revenue-comparison-summary');
     const chartCanvas = container.querySelector('#sales-revenue-chart');
+    const exportBtn = container.querySelector('#export-revenue-btn');
 
     const updateRevenueView = () => {
         const year = Number(yearSelect.value);
@@ -1204,6 +1208,34 @@ async function showSalesRevenue(container, user = null) {
     monthASelect?.addEventListener('change', updateRevenueView);
     monthBSelect?.addEventListener('change', updateRevenueView);
     updateRevenueView();
+
+    // export button handler (manager/staff only)
+    if (exportBtn) {
+        exportBtn.addEventListener('click', async () => {
+            try {
+                exportBtn.disabled = true;
+                exportBtn.textContent = 'Đang chuẩn bị...';
+                const year = Number(yearSelect.value) || new Date().getFullYear();
+                const user = getCurrentUser();
+                const res = await fetch(`${API_BASE_URL}/orders/revenue/export?year=${year}`, { headers: { Authorization: `Bearer ${user.token}` } });
+                if (!res.ok) throw new Error('Không thể tải file');
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `revenue_${year}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (e) {
+                alert('Xuất file thất bại: ' + (e.message || e));
+            } finally {
+                exportBtn.disabled = false;
+                exportBtn.textContent = 'Xuất Excel';
+            }
+        });
+    }
 }
 
 function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, productId = null, quantity = 1) {

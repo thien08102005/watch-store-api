@@ -9,5 +9,6 @@ router.get('/mine', verifyToken, orderController.getMyOrders.bind(orderControlle
 router.get('/', verifyToken, authorizeRoles('manager', 'staff'), orderController.getOrders.bind(orderController));
 router.get('/revenue', verifyToken, authorizeRoles('manager', 'staff'), orderController.getRevenueReport.bind(orderController));
 router.get('/revenue/monthly', verifyToken, authorizeRoles('manager', 'staff'), orderController.getMonthlyRevenue.bind(orderController));
+router.get('/revenue/export', verifyToken, authorizeRoles('manager', 'staff'), orderController.exportRevenue.bind(orderController));
 
 module.exports = router;
