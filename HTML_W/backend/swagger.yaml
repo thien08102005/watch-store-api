@@ -92,41 +92,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/auth/google:
-    post:
-      tags: [Auth]
-      summary: Đăng nhập bằng Google
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [credential]
-              properties:
-                credential:
-                  type: string
-                  example: google_id_token
-      responses:
-        '200':
-          description: Đăng nhập Google thành công
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: Thiếu credential hoặc không lấy được email
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Google login thất bại
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /api/auth/me:
     get:
       tags: [Auth]

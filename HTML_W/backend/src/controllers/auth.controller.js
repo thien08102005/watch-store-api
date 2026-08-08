@@ -1,13 +1,15 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/user.model');
-
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 class AuthController {
   buildUserResponse(user) {
-    return { id: user._id, name: user.name, email: user.email, role: user.role };
+    return {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isEmailVerified: Boolean(user.isEmailVerified)
+    };
   }
 
   async register(req, res) {
@@ -25,7 +27,12 @@ class AuthController {
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await User.create({ name, email: normalizedEmail, password: hashedPassword });
+      const user = await User.create({
+        name,
+        email: normalizedEmail,
+        password: hashedPassword,
+        isEmailVerified: true
+      });
 
       const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'secret', {
         expiresIn: '7d'
@@ -63,65 +70,6 @@ class AuthController {
       res.status(200).json({ success: true, message: 'Đăng nhập thành công.', token, user: this.buildUserResponse(user) });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
-    }
-  }
-
-  async googleLogin(req, res) {
-    try {
-      const { credential } = req.body;
-      if (!credential) {
-        return res.status(400).json({ success: false, message: 'Thiếu credential Google.' });
-      }
-
-      if (!process.env.GOOGLE_CLIENT_ID) {
-        return res.status(500).json({ success: false, message: 'Chưa cấu hình GOOGLE_CLIENT_ID ở server.' });
-      }
-
-      const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
-        audience: process.env.GOOGLE_CLIENT_ID
-      });
-
-      const payload = ticket.getPayload();
-      if (!payload?.email) {
-        return res.status(400).json({ success: false, message: 'Không lấy được thông tin email từ Google.' });
-      }
-
-      const normalizedEmail = payload.email.toLowerCase().trim();
-      let user = await User.findOne({ provider: 'google', providerId: payload.sub });
-
-      if (!user) {
-        user = await User.findOne({ email: normalizedEmail });
-      }
-
-      if (!user) {
-        const placeholderPassword = await bcrypt.hash(`google-${payload.sub}`, 10);
-        user = await User.create({
-          name: payload.name || payload.email.split('@')[0],
-          email: normalizedEmail,
-          password: placeholderPassword,
-          provider: 'google',
-          providerId: payload.sub,
-          avatarUrl: payload.picture || null,
-          role: 'customer'
-        });
-      } else {
-        user.provider = 'google';
-        user.providerId = payload.sub;
-        user.avatarUrl = payload.picture || user.avatarUrl || null;
-        if (!user.name) {
-          user.name = payload.name || payload.email.split('@')[0];
-        }
-        await user.save();
-      }
-
-      const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'secret', {
-        expiresIn: '7d'
-      });
-
-      return res.status(200).json({ success: true, message: 'Đăng nhập Google thành công.', token, user: this.buildUserResponse(user) });
-    } catch (error) {
-      return res.status(401).json({ success: false, message: 'Google login thất bại: ' + error.message });
     }
   }
 
@@ -178,6 +126,39 @@ class AuthController {
       const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true, runValidators: true });
       if (!user) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản.' });
       return res.status(200).json({ success: true, message: 'Đã cập nhật vai trò.', user: this.buildUserResponse(user) });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  async changePassword(req, res) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.user.id;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ success: false, message: 'Vui lòng nhập mật khẩu cũ và mật khẩu mới.' });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản.' });
+      }
+
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: 'Mật khẩu cũ không đúng.' });
+      }
+
+      if (currentPassword === newPassword) {
+        return res.status(400).json({ success: false, message: 'Mật khẩu mới không được trùng với mật khẩu cũ.' });
+      }
+
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+      user.password = hashedNewPassword;
+      await user.save();
+
+      return res.status(200).json({ success: true, message: 'Đã cập nhật mật khẩu thành công.' });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message });
     }

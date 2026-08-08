@@ -2,8 +2,17 @@ const AUTH_STORAGE_KEY = 'chronos_user';
 const CART_STORAGE_KEY = 'chronos_cart';
 const WISHLIST_STORAGE_KEY = 'chronos_wishlist';
 const ORDER_HISTORY_KEY = 'chronos_order_history';
+const SHIPPING_ADDRESS_KEY = 'chronos_shipping_address';
 const API_BASE_URL = 'http://localhost:5000/api';
 let currentAuthMode = 'login';
+
+const BANK_INFO = {
+    bank: 'Sacombank',
+    bankName: 'Ngân hàng TMCP Sài Gòn Tại Lộc',
+    accountNumber: '0702220422005',
+    accountHolder: 'DINH MINH VEN',
+    shopName: 'Chronos Shop'
+};
 
 const FALLBACK_BRANDS = [
     { name: 'Movado' },
@@ -158,19 +167,24 @@ function updateHeaderCounts() {
     const cartCount = !restrictedRole ? getCartCount() : 0;
     const wishlistCount = user && !restrictedRole ? getWishlistCount() : 0;
 
+    // Show/hide cart icon - only show if logged in
     if (cartIcon) {
-        cartIcon.style.display = 'inline-flex';
+        cartIcon.style.display = user ? 'inline-flex' : 'none';
     }
+    
+    // Show/hide wishlist icon - only show if logged in
     if (wishlistIcon) {
-        wishlistIcon.style.display = 'inline-flex';
+        wishlistIcon.style.display = user ? 'inline-flex' : 'none';
     }
+    
     if (cartCountEl) {
         cartCountEl.textContent = cartCount;
-        cartCountEl.style.display = 'inline-flex';
+        cartCountEl.style.display = user ? 'inline-flex' : 'none';
     }
+    
     if (wishlistCountEl) {
         wishlistCountEl.textContent = wishlistCount;
-        wishlistCountEl.style.display = 'inline-flex';
+        wishlistCountEl.style.display = user ? 'inline-flex' : 'none';
     }
 }
 
@@ -235,114 +249,120 @@ async function registerUser(name, email, password) {
         }
 
         saveCurrentUser({ name: data.user.name, email: data.user.email, role: data.user.role, token: data.token });
-        return { ok: true, message: 'Đăng ký tài khoản thành công!' };
+        return { ok: true, message: data.message || 'Đăng ký tài khoản thành công!' };
     } catch (error) {
         return { ok: false, message: 'Không thể kết nối tới server.' };
     }
 }
 
-async function handleGoogleAuthResponse(response) {
+async function changePassword(currentPassword, newPassword, token) {
     try {
-        if (!response?.credential) {
-            return { ok: false, message: 'Không nhận được thông tin từ Google.' };
-        }
-
-        const serverResponse = await fetch(`${API_BASE_URL}/auth/google`, {
+        const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credential: response.credential })
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ currentPassword, newPassword })
         });
 
-        const data = await serverResponse.json();
-        if (!serverResponse.ok || !data.success) {
-            return { ok: false, message: data.message || 'Đăng nhập Google thất bại.' };
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            return { ok: false, message: data.message || 'Đổi mật khẩu thất bại.' };
         }
 
-        saveCurrentUser({ name: data.user.name, email: data.user.email, role: data.user.role, token: data.token });
-        return { ok: true, message: 'Đăng nhập Google thành công!' };
+        return { ok: true, message: data.message || 'Đã cập nhật mật khẩu thành công!' };
     } catch (error) {
         return { ok: false, message: 'Không thể kết nối tới server.' };
     }
 }
 
-function loadGoogleSdk() {
-    if (window.google?.accounts?.id) {
-        return Promise.resolve();
-    }
-
-    if (document.getElementById('google-gsi-script')) {
-        return new Promise((resolve) => {
-            const check = () => {
-                if (window.google?.accounts?.id) {
-                    resolve();
-                } else {
-                    setTimeout(check, 100);
-                }
-            };
-            check();
-        });
-    }
-
-    return new Promise((resolve) => {
+function loadQRCodeLibrary() {
+    if (window.QRCode) return Promise.resolve();
+    return new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.id = 'google-gsi-script';
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = () => resolve();
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.5.3/qrcode.min.js';
+        script.onload = resolve;
+        script.onerror = reject;
         document.head.appendChild(script);
     });
 }
 
-function initGoogleAuthUI() {
-    const container = document.getElementById('google-login-container');
-    const clientId = window.GOOGLE_CLIENT_ID || '';
+function generatePaymentQRCode(accountNumber, amount, description) {
+    if (!accountNumber || !amount) return null;
+    const content = `${accountNumber}|${amount}|${description}`;
+    return content;
+}
 
-    if (!container) return;
+function parseVietnameseCurrency(value) {
+    if (!value) return 0;
+    const digits = String(value).replace(/[^0-9]/g, '');
+    return digits ? Number(digits) : 0;
+}
 
-    const button = document.getElementById('google-login-button');
-    if (button) {
-        button.textContent = clientId ? 'Đang tải Google login...' : 'Google login chưa cấu hình';
-        button.disabled = !clientId;
+async function showQRCodeModal(amount, description, onConfirm) {
+    injectAuthStyles();
+
+    const bankInfo = BANK_INFO;
+    const modal = document.createElement('div');
+    modal.className = 'auth-modal active';
+    modal.id = 'qr-code-modal';
+    modal.innerHTML = `<div class="auth-modal-box" style="max-width: 520px; padding: 20px;">
+        <button class="auth-close-btn" type="button" aria-label="Đóng">×</button>
+        <h3 style="text-align: center; margin-top: 0;">🏦 Thông Tin Chuyển Khoản</h3>
+        
+        <div style="background: #f0f8ff; padding: 16px; border-radius: 8px; margin: 15px 0; border: 2px solid #2c7a2c;">
+            <div style="margin-bottom: 12px;">
+                <p style="margin: 0; font-size: 12px; color: #666;">Ngân hàng</p>
+                <p style="margin: 4px 0 0 0; font-weight: bold; font-size: 15px;">${bankInfo.bank}</p>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: #888;">${bankInfo.bankName}</p>
+            </div>
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 8px 0;">
+            <div style="margin-bottom: 12px;">
+                <p style="margin: 0; font-size: 12px; color: #666;">Số tài khoản</p>
+                <p style="margin: 4px 0 0 0; font-weight: bold; font-size: 16px; font-family: monospace; letter-spacing: 1px;">${bankInfo.accountNumber}</p>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <p style="margin: 0; font-size: 12px; color: #666;">Chủ tài khoản</p>
+                <p style="margin: 4px 0 0 0; font-weight: bold; font-size: 15px;">${bankInfo.accountHolder}</p>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <p style="margin: 0; font-size: 12px; color: #666;">Cửa hàng</p>
+                <p style="margin: 4px 0 0 0; font-weight: bold; font-size: 15px;">${bankInfo.shopName}</p>
+            </div>
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 8px 0;">
+            <div style="margin-bottom: 12px;">
+                <p style="margin: 0; font-size: 12px; color: #666;">Số tiền</p>
+                <p style="margin: 4px 0 0 0; font-weight: bold; font-size: 18px; color: #2c7a2c;">${Number(amount).toLocaleString('vi-VN')} ₫</p>
+            </div>
+            <div>
+                <p style="margin: 0; font-size: 12px; color: #666;">Nội dung thanh toán</p>
+                <p style="margin: 4px 0 0 0; font-weight: 600; font-size: 14px; word-break: break-word;">${description}</p>
+            </div>
+        </div>
+        
+        <div id="qrcode-container" style="display: flex; justify-content: center; padding: 20px; background: #fff; border-radius: 8px; border: 2px solid #ddd; margin: 15px 0;">
+            <img src="/Image/qr-sepay.jpg" onerror="if(this.src !== 'Image/qr-sepay.jpg') this.src='Image/qr-sepay.jpg';" alt="QR chuyển khoản" style="max-width: 100%; height: auto; display: block;" />
+        </div>
+        
+        <p id="qrcode-info" style="font-size: 13px; color: #666; text-align: center; margin: 10px 0;">Quét mã QR hoặc dùng thông tin chuyển khoản bên trên.</p>
+        
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="checkout-submit" type="button" style="flex: 1; background: #555;" onclick="document.getElementById('qr-code-modal')?.remove()">Hủy</button>
+            <button class="checkout-submit" type="button" style="flex: 1;" id="confirm-payment-btn">✅ Đã Thanh Toán</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    
+    const qrcodeInfo = modal.querySelector('#qrcode-info');
+    if (qrcodeInfo) {
+        qrcodeInfo.textContent = 'Quét mã QR hoặc dùng thông tin chuyển khoản bên trên.';
     }
-
-    if (!clientId) {
-        return;
-    }
-
-    loadGoogleSdk().then(() => {
-        if (!window.google?.accounts?.id) return;
-        if (container.dataset.initialized === 'true') return;
-
-        const button = document.getElementById('google-login-button');
-        if (button) {
-            button.style.display = 'none';
-        }
-
-        window.google.accounts.id.initialize({
-            client_id: clientId,
-            callback: async (response) => {
-                const result = await handleGoogleAuthResponse(response);
-                const messageEl = document.getElementById('auth-message');
-                if (messageEl) {
-                    messageEl.textContent = result.message;
-                    messageEl.style.color = result.ok ? '#2c7a2c' : '#c0392b';
-                }
-                if (result.ok) {
-                    updateAuthUI();
-                    setTimeout(hideAuthModal, 700);
-                }
-            }
-        });
-
-        container.dataset.initialized = 'true';
-        window.google.accounts.id.renderButton(container, {
-            theme: 'outline',
-            size: 'large',
-            text: 'signin_with',
-            shape: 'pill',
-            width: '100%'
-        });
+    
+    modal.querySelector('.auth-close-btn').addEventListener('click', () => modal.remove());
+    modal.querySelector('#confirm-payment-btn').addEventListener('click', async () => {
+        modal.remove();
+        if (onConfirm) await onConfirm();
     });
 }
 
@@ -359,7 +379,8 @@ function injectAuthStyles() {
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 2000;
+            z-index: 2147483647;
+            pointer-events: auto !important;
             padding: 20px;
         }
         .auth-modal.active {
@@ -369,10 +390,14 @@ function injectAuthStyles() {
             background: #fff;
             width: 100%;
             max-width: 420px;
+            max-height: calc(100vh - 40px);
             border-radius: 12px;
             padding: 24px;
             box-shadow: 0 12px 40px rgba(0,0,0,0.2);
             position: relative;
+            z-index: 2147483648;
+            pointer-events: auto !important;
+            overflow-y: auto;
         }
         .auth-modal-box h3 {
             margin-bottom: 8px;
@@ -439,19 +464,6 @@ function injectAuthStyles() {
         }
         .auth-social-divider::before { left: 0; }
         .auth-social-divider::after { right: 0; }
-        .google-button {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            background: #fff;
-            color: #444;
-            font-weight: 700;
-            cursor: not-allowed;
-        }
-        .google-button:disabled {
-            opacity: 0.7;
-        }
         .auth-toggle {
             margin-top: 10px;
             text-align: center;
@@ -534,6 +546,12 @@ function injectAuthStyles() {
         .address-grid label { display: grid; gap: 6px; font-size: 13px; color: #444; }
         .address-grid input, .address-grid select { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font: inherit; }
         .checkout-submit { width: 100%; margin-top: 16px; padding: 11px; border: 0; border-radius: 8px; background: #d4af37; color: #111; font-weight: 700; cursor: pointer; }
+        .change-password-form { display: grid; gap: 12px; margin-top: 12px; }
+        .change-password-form input { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        .change-password-form button { padding: 10px 14px; border: 0; border-radius: 8px; background: #d4af37; color: #111; font-weight: 700; cursor: pointer; }
+        .change-password-message { min-height: 20px; margin-top: 10px; font-size: 14px; }
+        #qrcode-container { display: flex; justify-content: center; align-items: center; }
+        #qrcode-container canvas { border-radius: 8px; }
     `;
     document.head.appendChild(style);
 }
@@ -558,11 +576,7 @@ function createAuthModal() {
                 <input type="password" id="auth-confirm-password" placeholder="Nhập lại mật khẩu" required style="display:none;">
                 <button type="submit" id="auth-submit-btn">Đăng nhập</button>
             </form>
-            <div class="auth-social">
-                <div class="auth-social-divider">hoặc</div>
-                <div id="google-login-container"></div>
-                <button type="button" id="google-login-button" class="google-button">Đang tải Google login...</button>
-            </div>
+
             <div class="auth-toggle">
                 <button type="button" id="auth-toggle-btn">Chưa có tài khoản? Đăng ký</button>
             </div>
@@ -606,6 +620,7 @@ function setAuthMode(mode) {
 }
 
 function showAuthModal(message = 'Đăng nhập để mua hàng hoặc thêm sản phẩm vào giỏ.', mode = 'login') {
+    injectAuthStyles();
     const modal = createAuthModal();
     const messageEl = modal.querySelector('[data-auth-message]');
     if (messageEl) {
@@ -642,15 +657,10 @@ function logoutUser() {
     closeRolePanel();
     updateAuthUI();
     alert('Đã đăng xuất');
-    try {
-        location.reload();
-    } catch (e) {
-        // fallback: redirect to home
-        window.location.href = 'index.html';
-    }
+    // Redirect to home page after logout
+    window.location.href = 'index.html';
 }
 
-const SHIPPING_ADDRESS_KEY = 'chronos_shipping_address';
 const addressData = {
     'Hà Nội': {
         'Ba Đình': ['Phúc Xá', 'Trúc Bạch', 'Ngọc Hà', 'Liễu Giai', 'Đội Cấn', 'Quán Thánh', 'Cống Vị'],
@@ -905,6 +915,77 @@ function saveOrderToHistory(orderData) {
     }
 }
 
+function showOrderSummary(order) {
+    const addr = order.shippingAddress || {};
+    const fullAddr = [addr.detail, addr.ward, addr.district, addr.city].filter(Boolean).join(', ');
+    const priceAmount = Number(order.totalPrice) || (Array.isArray(order.items)
+        ? order.items.reduce((s, it) => s + ((Number(it.price) || 0) * (Number(it.quantity) || 1)), 0)
+        : 0);
+    const priceText = priceAmount > 0 ? priceAmount.toLocaleString('vi-VN') + ' VNĐ' : 'Liên hệ';
+    const paymentLabel = addr.payment === 'COD' ? '💵 COD (Thanh toán khi nhận)' : '🏦 Chuyển khoản ngân hàng';
+    return { fullAddr, priceText, paymentLabel };
+}
+
+function showOrderDetailModal(order) {
+    injectAuthStyles();
+    document.getElementById('order-detail-modal')?.remove();
+    const addr = order.shippingAddress || {};
+    const orderId = order._id || order.id || '';
+    const statusLabel = order.status || 'Đã đặt hàng';
+    const orderDate = order.orderDate || order.createdAt || '';
+    const items = Array.isArray(order.items) ? order.items : [];
+    const totalPrice = Number(order.totalPrice) || items.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+    const detailsHTML = items.map(item => `
+        <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name || 'Sản phẩm'}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${Number(item.quantity || 1)}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${(Number(item.price) || 0).toLocaleString('vi-VN')} VNĐ</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${((Number(item.price) || 0) * (Number(item.quantity) || 1)).toLocaleString('vi-VN')} VNĐ</td>
+        </tr>
+    `).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'order-detail-modal';
+    modal.className = 'auth-modal active';
+    modal.innerHTML = `
+        <div class="auth-modal-box" style="max-width: 640px; max-height: calc(100vh - 40px); overflow-y: auto;">
+            <button class="auth-close-btn" type="button" aria-label="Đóng">×</button>
+            <h3>Chi tiết đơn hàng</h3>
+            <div style="margin-bottom: 16px; color: #333; font-size: 14px;">
+                <p style="margin: 6px 0;"><strong>Mã đơn:</strong> #${orderId}</p>
+                <p style="margin: 6px 0;"><strong>Trạng thái:</strong> ${statusLabel}</p>
+                <p style="margin: 6px 0;"><strong>Ngày đặt:</strong> ${orderDate}</p>
+            </div>
+            <div style="background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                <h4 style="margin: 0 0 10px 0;">Sản phẩm</h4>
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">Tên</th>
+                            <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd;">Số lượng</th>
+                            <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">Giá</th>
+                            <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>${detailsHTML || '<tr><td colspan="4" style="padding: 10px; text-align: center; color: #666;">Không có thông tin sản phẩm</td></tr>'}</tbody>
+                </table>
+            </div>
+            <div style="margin-bottom: 16px; color: #333; font-size: 14px;">
+                <p style="margin: 6px 0;"><strong>Người nhận:</strong> ${addr.recipient || order.userName || 'N/A'}</p>
+                <p style="margin: 6px 0;"><strong>Điện thoại:</strong> ${addr.phone || 'N/A'}</p>
+                <p style="margin: 6px 0;"><strong>Địa chỉ:</strong> ${[addr.detail, addr.ward, addr.district, addr.city].filter(Boolean).join(', ') || 'N/A'}</p>
+                <p style="margin: 6px 0;"><strong>Thanh toán:</strong> ${addr.payment === 'COD' ? '💵 COD' : '🏦 Chuyển khoản ngân hàng'}</p>
+                <p style="margin: 6px 0;"><strong>Tổng tiền:</strong> <span style="color: #d4af37; font-weight: 700;">${totalPrice.toLocaleString('vi-VN')} VNĐ</span></p>
+            </div>
+            <div style="text-align: right;"><button class="checkout-submit close-order-detail-btn" style="background:#555;" type="button">Đóng</button></div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelector('.auth-close-btn')?.addEventListener('click', () => modal.remove());
+    modal.querySelector('.close-order-detail-btn')?.addEventListener('click', () => modal.remove());
+}
+
 function showOrderHistory(container, user = null) {
     (async () => {
         let orders = [];
@@ -978,17 +1059,27 @@ function showOrderHistory(container, user = null) {
                             <p style="margin: 4px 0;"><strong>Địa chỉ:</strong> ${fullAddr || 'N/A'}</p>
                             <p style="margin: 4px 0;"><strong>Thanh toán:</strong> ${paymentLabel}</p>
                         </div>
-                        ${(['manager','staff'].includes((currentUser||{}).role) && statusLabel === 'Chờ duyệt') ? `
-                            <div style="margin-top:10px; display:flex; gap:8px;">
-                                <button class="checkout-submit" style="background:#2c7a2c;" onclick="document.getElementById('role-panel-modal')?.remove();">Xem chi tiết</button>
+                        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap: wrap;">
+                            <button class="checkout-submit view-order-detail" type="button" data-order-id="${orderId}" style="background:#2c7a2c;">Xem chi tiết</button>
+                            ${(['manager','staff'].includes((currentUser||{}).role) && statusLabel === 'Chờ duyệt') ? `
                                 <button class="checkout-submit" style="background:#d4af37;" onclick="window.CHRONOS_AUTH.approveOrder('${orderId}')">Duyệt đơn</button>
-                            </div>
-                        ` : ''}
+                            ` : ''}
+                        </div>
                     </div>
                 `;
             }).join('')}
         </div>
     `;
+    const detailButtons = container.querySelectorAll('.view-order-detail');
+    detailButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const orderId = button.dataset.orderId;
+            const target = orders.find(o => (o._id || o.id || '') === orderId);
+            if (target) {
+                showOrderDetailModal(target);
+            }
+        });
+    });
     })();
 }
 
@@ -1239,6 +1330,7 @@ async function showSalesRevenue(container, user = null) {
 }
 
 function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, productId = null, quantity = 1) {
+    injectAuthStyles();
     if (!requireLogin('mua ngay')) return;
     document.getElementById('checkout-modal')?.remove();
     const savedAddress = JSON.parse(localStorage.getItem(SHIPPING_ADDRESS_KEY) || 'null') || {};
@@ -1278,16 +1370,31 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
                         <span>🏦 Chuyển khoản ngân hàng</span>
                     </label>
                 </div>
-                <button class="checkout-submit" type="submit">Xác nhận đặt hàng</button>
+                <div id="bank-account-section" style="display: none; background: #f0f8ff; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #b0d4ff; font-size: 13px;">
+                    <p style="margin: 0 0 8px 0; color: #666;"><strong>✅ Thông tin tài khoản:</strong></p>
+                    <p style="margin: 3px 0; color: #333;"><strong>Ngân hàng:</strong> ${BANK_INFO.bank}</p>
+                    <p style="margin: 3px 0; color: #333;"><strong>Số TK:</strong> ${BANK_INFO.accountNumber}</p>
+                    <p style="margin: 3px 0; color: #333;"><strong>Chủ TK:</strong> ${BANK_INFO.accountHolder}</p>
+                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #2c7a2c;">ℹ️ QR code sẽ hiển thị khi nhấn xác nhận đặt hàng</p>
+                </div>
+                <button id="checkout-confirm-btn" class="checkout-submit" type="button" style="position: relative; z-index: 2147483649; pointer-events: auto;">Xác nhận đặt hàng</button>
             </form>
         </div>
     </div>`;
     document.body.appendChild(modal);
-    // If a specific product is provided, fetch its current stock/price to limit quantity
+    // If a specific product is provided, fetch its current stock/price to limit quantity.
+    // Fall back to the current product page price if productPrice is missing.
     (async () => {
         let currentPrice = Number(productPrice) || 0;
+        if (!currentPrice) {
+            const pagePriceText = document.querySelector('#detail-price, .current-price')?.textContent || '';
+            const pagePriceValue = parseVietnameseCurrency(pagePriceText);
+            if (!Number.isNaN(pagePriceValue) && pagePriceValue > 0) {
+                currentPrice = pagePriceValue;
+            }
+        }
         let maxStock = null;
-        if (productId && productId !== 'Giỏ hàng') {
+        if (!currentPrice && productId && productId !== 'Giỏ hàng') {
             try {
                 const res = await fetch(`${API_BASE_URL}/products`);
                 const all = await res.json();
@@ -1357,12 +1464,77 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
     if (savedAddress.city && addressData[savedAddress.city]) {
         city.value = savedAddress.city; updateDistricts(); district.value = savedAddress.district || ''; updateWards(); ward.value = savedAddress.ward || '';
     }
+    
+    // Handle payment method selection
+    const bankAccountSection = modal.querySelector('#bank-account-section');
+    const paymentRadios = modal.querySelectorAll('input[name="payment"]');
+    
+    paymentRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'Transfer') {
+                bankAccountSection.style.display = 'block';
+            } else {
+                bankAccountSection.style.display = 'none';
+            }
+        });
+    });
+    
     modal.querySelector('.auth-close-btn').addEventListener('click', () => modal.remove());
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
+    const checkoutConfirmBtn = modal.querySelector('#checkout-confirm-btn');
+
+    const processCheckout = async () => {
         const formData = new FormData(form);
         const shippingAddress = Object.fromEntries(formData.entries());
         localStorage.setItem(SHIPPING_ADDRESS_KEY, JSON.stringify(shippingAddress));
+
+        const selectedPayment = shippingAddress.payment;
+        if (selectedPayment === 'Transfer') {
+            let totalAmount = 0;
+            const totalText = modal.querySelector('#checkout-total')?.textContent || '';
+            const parsedTotal = parseVietnameseCurrency(totalText);
+            if (!Number.isNaN(parsedTotal) && parsedTotal > 0) {
+                totalAmount = parsedTotal;
+            }
+
+            if (totalAmount === 0) {
+                if (isCartOrder) {
+                    totalAmount = Number(productPrice) || 0;
+                    if (totalAmount === 0) {
+                        const cartItems = getCartItems();
+                        totalAmount = cartItems.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+                    }
+                } else {
+                    const qty = Number(modal.querySelector('#checkout-quantity')?.value || quantity) || 1;
+                    const price = parseVietnameseCurrency(modal.querySelector('#checkout-product-price')?.textContent || '') || Number(productPrice) || 0;
+                    totalAmount = price * qty;
+                }
+            }
+
+            const productDesc = productName === 'Giỏ hàng' ? 'Thanh toán giỏ hàng Chronos' : `Thanh toán ${productName}`;
+            await showQRCodeModal(totalAmount, productDesc, async () => {
+                await submitOrderProcess(formData, null);
+            });
+            return;
+        }
+
+        await submitOrderProcess(formData, null);
+    };
+
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        processCheckout();
+    });
+
+    if (checkoutConfirmBtn) {
+        checkoutConfirmBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.debug('checkout-confirm-btn clicked');
+            processCheckout();
+        });
+    }
+    
+    async function submitOrderProcess(formData, event) {
+        const shippingAddress = Object.fromEntries(formData.entries());
 
         let displayProductName = productName;
         let itemsList = [];
@@ -1383,8 +1555,8 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
             const priceTextEl = document.getElementById('checkout-product-price');
             let unitPrice = Number(productPrice) || 0;
             if (priceTextEl) {
-                const txt = priceTextEl.textContent.replace(/[^0-9\.]/g, '');
-                unitPrice = Number(txt) || unitPrice;
+                const txt = priceTextEl.textContent || '';
+                unitPrice = parseVietnameseCurrency(txt) || unitPrice;
             }
             itemsList = [{ id: productId, productId, name: productName, quantity: Number(selectedQty) || 1, price: Number(unitPrice) || 0 }];
         }
@@ -1435,7 +1607,8 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
             shippingAddress,
             status: backendResult.data?.status || 'Đã đặt hàng',
             orderDate: backendResult.data?.orderDate || new Date().toLocaleString('vi-VN'),
-            timestamp: backendResult.data?.timestamp || Date.now()
+            timestamp: backendResult.data?.timestamp || Date.now(),
+            paymentMethod: shippingAddress.payment
         });
 
         // Nếu đặt hàng từ giỏ hàng, xóa sạch giỏ hàng
@@ -1504,7 +1677,16 @@ function showCheckoutModal(productName = 'sản phẩm', productPrice = 0, produ
 
         modalTitle.textContent = 'Xác nhận đơn hàng';
         modalContent.innerHTML = orderHTML;
-    });
+        
+        // Tự động đóng modal sau 5 giây nếu người dùng không tương tác
+        setTimeout(() => {
+            const modal = document.getElementById('checkout-modal');
+            if (modal) {
+                modal.remove();
+                updateHeaderCounts();
+            }
+        }, 5000);
+    }
 }
 
 async function submitProductFromPanel(form, messageEl) {
@@ -1675,6 +1857,57 @@ async function showStaffManagement(content, user) {
     });
 }
 
+function showChangePasswordPanel(content, user) {
+    content.innerHTML = `
+        <h4>Đổi mật khẩu</h4>
+        <form class="change-password-form" id="change-password-form">
+            <input type="password" name="currentPassword" placeholder="Mật khẩu hiện tại" required>
+            <input type="password" name="newPassword" placeholder="Mật khẩu mới" required>
+            <input type="password" name="confirmPassword" placeholder="Xác nhận mật khẩu mới" required>
+            <button type="submit">Cập nhật mật khẩu</button>
+        </form>
+        <div class="change-password-message"></div>`;
+    const message = content.querySelector('.change-password-message');
+    const form = content.querySelector('#change-password-form');
+    
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+            const formData = new FormData(form);
+            const currentPassword = formData.get('currentPassword').trim();
+            const newPassword = formData.get('newPassword').trim();
+            const confirmPassword = formData.get('confirmPassword').trim();
+            
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                throw new Error('Vui lòng nhập đủ thông tin.');
+            }
+            
+            if (newPassword !== confirmPassword) {
+                throw new Error('Mật khẩu xác nhận không khớp.');
+            }
+            
+            const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+            if (!passwordRegex.test(newPassword)) {
+                throw new Error('Mật khẩu phải từ 8 ký tự trở lên, gồm cả chữ và số.');
+            }
+            
+            const result = await changePassword(currentPassword, newPassword, user.token);
+            message.textContent = result.message;
+            message.style.color = result.ok ? '#2c7a2c' : '#c0392b';
+            
+            if (result.ok) {
+                form.reset();
+                setTimeout(() => {
+                    message.textContent = '';
+                }, 2000);
+            }
+        } catch (error) {
+            message.textContent = error.message;
+            message.style.color = '#c0392b';
+        }
+    });
+}
+
 function showRolePanel(user) {
     hideAuthModal();
     closeRolePanel();
@@ -1696,6 +1929,7 @@ function showRolePanel(user) {
         <p style="margin-top: 4px; color: #666; font-size: 14px;">Vai trò: <strong>${getRoleLabel(user.role)}</strong> (${user.email})</p>
         <div class="role-panel-actions" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; margin-bottom: 16px;">
             <button type="button" data-action="orders" class="primary">📦 Lịch sử mua hàng</button>
+            <button type="button" data-action="change-password" class="secondary">🔑 Đổi mật khẩu</button>
             ${productControls}
             ${managerControls}
             <button type="button" class="secondary" data-action="logout">Đăng xuất</button>
@@ -1724,6 +1958,8 @@ function showRolePanel(user) {
             showOrderHistory(content, user);
         } else if (action === 'product') {
             showProductManagement(content);
+        } else if (action === 'change-password') {
+            showChangePasswordPanel(content, user);
         } else if (action === 'staff') {
             showStaffManagement(content, user);
         } else if (action === 'revenue') {
@@ -1769,7 +2005,6 @@ function updateAuthUI() {
 function bindAuthEvents() {
     injectAuthStyles();
     const modal = createAuthModal();
-    initGoogleAuthUI();
     const form = document.getElementById('auth-form');
     const toggleBtn = document.getElementById('auth-toggle-btn');
     const closeBtn = modal.querySelector('.auth-close-btn');
@@ -1852,7 +2087,11 @@ function bindAuthEvents() {
             if (result.ok) {
                 resetAuthForm();
                 updateAuthUI();
-                setTimeout(hideAuthModal, 700);
+                setTimeout(() => {
+                    hideAuthModal();
+                    // Redirect to home page after successful login/registration
+                    window.location.href = 'index.html';
+                }, 700);
             }
         });
     }
@@ -1913,7 +2152,11 @@ function handleProtectedBuyNow(productName = 'sản phẩm', productPrice = 0, p
 }
 
 function handleProtectedAddToCart(productId, productName = 'sản phẩm', quantity = 1, price = 0) {
-    // Allow guests to add to cart. Only block manager/staff/admin roles.
+    // Require login to add to cart
+    if (!requireLogin('thêm sản phẩm vào giỏ hàng')) {
+        return;
+    }
+    // Block manager/staff/admin roles
     const user = getCurrentUser();
     if (user && ['manager', 'staff', 'admin'].includes(user.role)) {
         alert('Nhân viên/quản lý không được thêm sản phẩm vào giỏ hàng.');
@@ -1921,7 +2164,6 @@ function handleProtectedAddToCart(productId, productName = 'sản phẩm', quant
     }
     addToCart(productId, productName, quantity, price);
     try {
-        // Friendly notice; non-blocking for guests
         alert(`Đã thêm "${productName}" số lượng ${quantity} vào giỏ hàng.`);
     } catch (e) {}
 }

@@ -21,7 +21,6 @@ services:
       PORT: 5000
       MONGO_URI: mongodb://mongo:27017/ChronosWatchDB
       JWT_SECRET: supersecret
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     ports:
       - '5000:5000'
 

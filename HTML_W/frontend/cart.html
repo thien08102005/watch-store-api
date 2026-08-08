@@ -219,7 +219,6 @@
         </div>
     </section>
 
-    <script src="js/google-config.js"></script>
     <script src="js/auth.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -348,45 +347,10 @@
                 const data = await res.json();
                 if (!res.ok || !data.success || !Array.isArray(data.data)) return false;
 
-                // collect all approved orders' items
-                const approvedItems = [];
-                data.data.forEach(order => {
-                    if (order.status === 'Đã duyệt' && Array.isArray(order.items)) {
-                        order.items.forEach(it => {
-                            const pid = it.productId || it.id || '';
-                            const qty = Number(it.quantity) || 0;
-                            if (pid) approvedItems.push({ id: pid, quantity: qty });
-                        });
-                    }
-                });
+                // ✅ FIXED: Chỉ xóa giỏ nếu nó khớp với đơn hàng CUỐI CÙNG được duyệt
+                // ❌ KHÔNG xóa dựa trên các đơn hàng cũ hoặc bất kỳ đơn nào khác
+                // Lý do: Khách hàng phải có quyền mua lại sản phẩm bao nhiêu lần tùy ý
 
-                if (!approvedItems.length) return false;
-
-                // create a map of approved quantities per product id
-                const approvedMap = approvedItems.reduce((m, it) => {
-                    m[it.id] = (m[it.id] || 0) + it.quantity;
-                    return m;
-                }, {});
-
-                let changed = false;
-                const nextCart = cartItems.map(ci => ({ ...ci }));
-                for (const cid in approvedMap) {
-                    const approvedQty = approvedMap[cid] || 0;
-                    const idx = nextCart.findIndex(c => c.id === cid);
-                    if (idx >= 0) {
-                        const currentQty = Number(nextCart[idx].quantity) || 0;
-                        const remaining = currentQty - approvedQty;
-                        if (remaining > 0) {
-                            nextCart[idx].quantity = remaining;
-                        } else {
-                            nextCart.splice(idx, 1);
-                        }
-                        changed = true;
-                    }
-                }
-
-                // Prefer clearing only if it corresponds to the last order the user placed.
-                // This prevents older approved orders from clearing a freshly edited cart.
                 const lastOrderId = localStorage.getItem('chronos_last_order_id');
                 if (lastOrderId) {
                     const matched = data.data.find(o => (o._id === lastOrderId || o.id === lastOrderId || String(o._id) === String(lastOrderId)) && o.status === 'Đã duyệt');
@@ -402,24 +366,9 @@
                     }
                 }
 
-                // If no lastOrderId match, fall back to previous behavior: clear if some approved order exactly matches the cart
-                const exactApproved = data.data.find(order => order.status === 'Đã duyệt' && isSameCartAsOrder(cartItems, order.items));
-                if (exactApproved) {
-                    try {
-                        saveCartItems([]);
-                        sessionStorage.setItem('chronos_cart_cleared_by_approval', '1');
-                        updateHeaderCounts();
-                        try { window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { items: [] } })); } catch (e) {}
-                    } catch (e) {}
-                    return true;
-                }
-
-                if (changed) {
-                    saveCartItems(nextCart);
-                    updateHeaderCounts();
-                    try { window.dispatchEvent(new CustomEvent('cartUpdated', { detail: { items: nextCart } })); } catch (e) {}
-                    return true;
-                }
+                // ❌ REMOVED: Không còn so sánh với isSameCartAsOrder()
+                // Lý do: Điều này khiến giỏ bị xóa nếu nó khớp với BẤT KỲ đơn đã duyệt nào
+                // Chỉ xóa giỏ khi nó khớp với đơn CUỐI CÙNG được duyệt (lastOrderId)
             } catch (error) {
                 console.warn('Không thể đồng bộ giỏ với đơn đã duyệt:', error);
             }
