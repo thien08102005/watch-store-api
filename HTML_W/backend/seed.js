@@ -355,11 +355,11 @@ const seedDB = async () => {
 const seedIfEmpty = async () => {
     await connectDatabase();
     try {
-        await seedDemoUsers();
+        const createdBy = await seedDemoUsers();
         const count = await Product.countDocuments();
         if (count === 0) {
             console.log('Dữ liệu rỗng, tiến hành seed dữ liệu mẫu...');
-            await Product.insertMany(prepareProducts(sampleProducts));
+            await Product.insertMany(prepareProducts(sampleProducts, createdBy));
             console.log('Đã seed dữ liệu mẫu thành công.');
         } else {
             console.log(`Đã có ${count} sản phẩm, không cần seed thêm.`);

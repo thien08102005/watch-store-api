@@ -29,7 +29,10 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
-  await seedData.seedIfEmpty();
+
+  if (process.env.SEED_ON_STARTUP === 'true') {
+    await seedData.seedIfEmpty();
+  }
 
   app.listen(PORT, () => {
     console.log(`Server chạy tại: http://localhost:${PORT}`);
