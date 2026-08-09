@@ -117,6 +117,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Đổi mật khẩu tài khoản hiện tại
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                  example: 123456
+                newPassword:
+                  type: string
+                  example: 12345678
+      responses:
+        '200':
+          description: Đổi mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/auth/users:
     get:
       tags: [Auth]
@@ -397,6 +437,187 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/cart:
+    get:
+      tags: [Cart]
+      summary: Lấy giỏ hàng của người dùng hiện tại
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Trả về danh sách sản phẩm trong giỏ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CartItem'
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/cart/items:
+    post:
+      tags: [Cart]
+      summary: Thêm sản phẩm vào giỏ hàng
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId]
+              properties:
+                productId:
+                  type: string
+                name:
+                  type: string
+                price:
+                  type: number
+                quantity:
+                  type: number
+                image:
+                  type: string
+      responses:
+        '200':
+          description: Cập nhật giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CartItem'
+        '400':
+          description: Dữ liệu giỏ hàng không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Cart]
+      summary: Cập nhật số lượng sản phẩm trong giỏ hàng
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, quantity]
+              properties:
+                productId:
+                  type: string
+                quantity:
+                  type: number
+      responses:
+        '200':
+          description: Cập nhật giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CartItem'
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Không tìm thấy sản phẩm trong giỏ hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/cart:
+    delete:
+      tags: [Cart]
+      summary: Xóa toàn bộ giỏ hàng
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Xóa giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/cart/merge:
+    post:
+      tags: [Cart]
+      summary: Gộp giỏ hàng client lên server sau khi đăng nhập
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CartItem'
+      responses:
+        '200':
+          description: Gộp giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CartItem'
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/orders:
     post:
       tags: [Orders]
@@ -591,6 +812,39 @@ paths:
                         type: array
                         items:
                           type: number
+
+  /api/orders/revenue/export:
+    get:
+      tags: [Orders]
+      summary: Xuất báo cáo doanh thu dạng Excel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: year
+          schema:
+            type: integer
+          description: Năm cần xuất báo cáo
+      responses:
+        '200':
+          description: File Excel doanh thu
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -677,6 +931,24 @@ components:
         quantity:
           type: number
           example: 1
+    CartItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          example: 64f2a1b9c0d1e2f3a4b5c6d
+        name:
+          type: string
+          example: Đồng hồ Nam
+        price:
+          type: number
+          example: 15000000
+        quantity:
+          type: number
+          example: 1
+        image:
+          type: string
+          example: https://example.com/image.jpg
     ShippingAddress:
       type: object
       properties:
@@ -750,6 +1022,14 @@ components:
           type: string
         user:
           $ref: '#/components/schemas/User'
+    SuccessMessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
     ProductResponse:
       type: object
       properties:
