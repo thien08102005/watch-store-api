@@ -97,12 +97,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
             <div class="product-info-box">
                 <h1 id="detail-title">${product.name}</h1>
-                <div class="rating-stars">
+                <div class="rating-stars" aria-label="Đánh giá sản phẩm">
                     <i class="fas fa-star"></i>
                     <i class="fas fa-star"></i>
                     <i class="fas fa-star"></i>
                     <i class="fas fa-star"></i>
-                    <i class="fas fa-star"></i> 5 đánh giá
+                    <i class="fas fa-star"></i>
                 </div>
 
                 <div class="spec-item"><strong>Mã SP:</strong> <span id="detail-sku">${sku}</span></div>
